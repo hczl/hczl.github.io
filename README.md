@@ -1,1 +1,8 @@
-# hczl.github.io
+# 我的技术笔记
+
+记录大模型推理、KV Cache、存储与远程开发中的学习和实验。
+
+## 正在研究
+- vLLM 的 KV Cache 管理
+- KV 卸载与存储访问
+- CUDA / 昇腾开发
