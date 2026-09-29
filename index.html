@@ -1,0 +1,26 @@
+---
+layout: default
+---
+<section class="hero">
+  <div class="eyebrow"><span class="status-dot"></span> HCZL’S ENGINEERING NOTES</div>
+  <h1>把问题弄明白，<br>把过程记下来<span class="blue">。</span></h1>
+  <p class="hero-description">记录大模型推理、KV Cache、存储与远程开发中的学习和实验。</p>
+  <div class="hero-links"><a class="button" href="#notes">阅读笔记 <span aria-hidden="true">↓</span></a><a class="text-link" href="{{ '/about/' | relative_url }}">关于这里 <span aria-hidden="true">↗</span></a></div>
+  <div class="hero-art" aria-hidden="true"><span class="art-label">IDEA → EXPERIMENT → NOTE</span><div class="grid-sheet"><div class="diagram-cell cell-one">Q</div><div class="diagram-line line-one"></div><div class="diagram-cell cell-two">K</div><div class="diagram-line line-two"></div><div class="diagram-cell cell-three">V</div><span class="art-caption">每一个结论，都有来处。</span></div></div>
+</section>
+<section class="topics" aria-labelledby="topics-title">
+  <div class="section-heading"><h2 id="topics-title">正在探索</h2><span class="section-kicker">RESEARCH DIRECTIONS</span></div>
+  <div class="topic-grid">
+    <div class="topic"><span class="topic-number">01 / INFERENCE</span><h3>大模型推理</h3><p>vLLM、KV Cache 与推理执行过程。</p><span class="topic-tags">vLLM · KV Cache</span></div>
+    <div class="topic"><span class="topic-number">02 / STORAGE</span><h3>存储与数据传输</h3><p>KV 卸载、存储访问与数据流动。</p><span class="topic-tags">Offloading · Storage</span></div>
+    <div class="topic"><span class="topic-number">03 / ENGINEERING</span><h3>开发与实验</h3><p>CUDA、昇腾与远程开发中的实践。</p><span class="topic-tags">CUDA · Ascend</span></div>
+  </div>
+</section>
+<section class="notes-section" id="notes" aria-labelledby="notes-title">
+  <div class="section-heading"><h2 id="notes-title">最新笔记 <span class="count">{{ site.posts | size }}</span></h2><a class="text-link small" href="{{ '/archive/' | relative_url }}">全部归档 ↗</a></div>
+  {% if site.posts.size > 0 %}
+  <div class="post-list">{% for post in site.posts limit: 6 %}{% include post-card.html %}{% endfor %}</div>
+  {% else %}
+  <div class="empty-state"><span class="empty-icon" aria-hidden="true">[ &nbsp; ]</span><div><h3>第一篇笔记，正在路上。</h3><p>这里会慢慢留下问题、实验，以及理解它们的过程。</p></div></div>
+  {% endif %}
+</section>

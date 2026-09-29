@@ -1,0 +1,31 @@
+title: hczl · 技术笔记
+name: hczl
+description: 记录大模型推理、KV Cache、存储与远程开发中的学习和实验。
+url: https://hczl.github.io
+baseurl: ""
+lang: zh-CN
+timezone: Asia/Shanghai
+markdown: kramdown
+highlighter: rouge
+permalink: /notes/:title/
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: post
+exclude:
+  - README.md
+  - WRITING.md
+  - Gemfile
+  - Gemfile.lock
+  - vendor
+  - scripts
+  - templates
+  - .bundle
