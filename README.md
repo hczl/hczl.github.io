@@ -1,14 +1,14 @@
 # hczl · 技术笔记
 
-记录大模型推理、KV Cache、存储与远程开发中的学习和实验。
+大模型推理中 KV Cache 卸载的学习笔记：GPU / 昇腾 NPU 显存、内存与 SSD 之间的 KV 存取。
 
 **[访问博客](https://hczl.github.io) · [写作指南](WRITING.md)**
 
-## 正在研究
+## 在做的事
 
 - vLLM 的 KV Cache 管理
-- KV 卸载与存储访问
-- CUDA / 昇腾开发
+- KV 卸载到内存和 SSD
+- GPU（CUDA）与昇腾 NPU 上的实现和实验
 
 ## 网站结构
 

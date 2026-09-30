@@ -1,6 +1,6 @@
 title: hczl · 技术笔记
 name: hczl
-description: 记录大模型推理、KV Cache、存储与远程开发中的学习和实验。
+description: 大模型推理中 KV Cache 卸载的学习笔记：GPU / 昇腾 NPU 显存、内存与 SSD 之间的 KV 存取。
 url: https://hczl.github.io
 baseurl: ""
 lang: zh-CN
@@ -23,6 +23,7 @@ defaults:
 exclude:
   - README.md
   - WRITING.md
+  - CLAUDE.md
   - Gemfile
   - Gemfile.lock
   - vendor
