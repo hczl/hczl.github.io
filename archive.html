@@ -3,8 +3,8 @@ layout: default
 title: 文章归档
 permalink: /archive/
 ---
-<header class="page-header"><div class="eyebrow">归档</div><h1>全部文章</h1><p>按年份排列。</p></header>
+<header class="page-header"><div class="eyebrow">归档</div><h1>文章归档</h1><p>按年份列出全部文章。</p></header>
 {% if site.posts.size > 0 %}
 {% assign years = site.posts | group_by_exp: 'post', 'post.date | date: "%Y"' %}
 {% for year in years %}<section class="archive-year"><div class="section-heading"><h2>{{ year.name }}</h2><span class="section-kicker">{{ year.items | size }} 篇笔记</span></div><div class="post-list">{% for post in year.items %}{% include post-card.html %}{% endfor %}</div></section>{% endfor %}
-{% else %}<div class="empty-state"><span class="empty-icon" aria-hidden="true">[ &nbsp; ]</span><div><h2>还没有发布的笔记</h2><p>发了文章会列在这里。</p><a class="text-link small" href="{{ '/' | relative_url }}">返回首页 ↗</a></div></div>{% endif %}
+{% else %}<div class="empty-state"><span class="empty-icon" aria-hidden="true">[ &nbsp; ]</span><div><h2>暂无文章</h2><p>文章发布后将按年份收录于此。</p><a class="text-link small" href="{{ '/' | relative_url }}">返回首页 ↗</a></div></div>{% endif %}

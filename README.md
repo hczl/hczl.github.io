@@ -4,11 +4,11 @@
 
 **[访问博客](https://hczl.github.io) · [写作指南](WRITING.md)**
 
-## 在做的事
+## 研究方向
 
-- vLLM 的 KV Cache 管理
-- KV 卸载到内存和 SSD
-- GPU（CUDA）与昇腾 NPU 上的实现和实验
+- vLLM 的 KV Cache 管理机制
+- KV Cache 向主机内存与 SSD 的分层卸载
+- NVIDIA GPU（CUDA）与昇腾 NPU 上的实现与性能测试
 
 ## 网站结构
 

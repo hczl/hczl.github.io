@@ -2,18 +2,18 @@
 layout: default
 ---
 <section class="hero">
-  <div class="eyebrow"><span class="status-dot"></span> hczl 的技术笔记</div>
-  <h1>KV Cache 卸载<br>与存储的实验笔记</h1>
-  <p class="hero-description">我在做大模型推理里的 KV Cache 卸载：GPU 和昇腾 NPU 显存放不下的 KV，怎么放到内存和 SSD 上，需要时再尽快读回来。读 vLLM 源码的笔记、测带宽和延迟的实验、踩过的坑，都记在这里。</p>
-  <div class="hero-links"><a class="button" href="#notes">看笔记 <span aria-hidden="true">↓</span></a><a class="text-link" href="{{ '/about/' | relative_url }}">关于我 <span aria-hidden="true">↗</span></a></div>
-  <div class="hero-art" aria-hidden="true"><span class="art-label">HBM → DRAM → SSD</span><div class="grid-sheet"><div class="diagram-cell cell-one">HBM</div><div class="diagram-line line-one"></div><div class="diagram-cell cell-two">DRAM</div><div class="diagram-line line-two"></div><div class="diagram-cell cell-three">SSD</div><span class="art-caption">KV 从显存往下卸载的路径</span></div></div>
+  <div class="eyebrow"><span class="status-dot"></span> hczl · 技术笔记</div>
+  <h1>大模型推理中的<br>KV Cache 卸载与存储</h1>
+  <p class="hero-description">关注长上下文与高并发场景下的 KV Cache 分层存储：将 GPU / 昇腾 NPU 显存中的 KV Cache 卸载至主机内存与 SSD，并按需低延迟取回。内容包括 vLLM 源码分析、存储 I/O 性能测试，以及工程实践中的问题记录。</p>
+  <div class="hero-links"><a class="button" href="#notes">浏览文章 <span aria-hidden="true">↓</span></a><a class="text-link" href="{{ '/about/' | relative_url }}">关于 <span aria-hidden="true">↗</span></a></div>
+  <div class="hero-art" aria-hidden="true"><span class="art-label">HBM → DRAM → SSD</span><div class="grid-sheet"><div class="diagram-cell cell-one">HBM</div><div class="diagram-line line-one"></div><div class="diagram-cell cell-two">DRAM</div><div class="diagram-line line-two"></div><div class="diagram-cell cell-three">SSD</div><span class="art-caption">KV Cache 分层卸载路径</span></div></div>
 </section>
 <section class="topics" aria-labelledby="topics-title">
-  <div class="section-heading"><h2 id="topics-title">在做的事</h2></div>
+  <div class="section-heading"><h2 id="topics-title">研究方向</h2></div>
   <div class="topic-grid">
-    <div class="topic"><span class="topic-number">01</span><h3>KV Cache 卸载</h3><p>vLLM 怎么管理 KV Cache，以及把它分层放到显存、内存和 SSD 上的做法。</p><span class="topic-tags">vLLM · KV Cache · Offloading</span></div>
-    <div class="topic"><span class="topic-number">02</span><h3>SSD 与数据通路</h3><p>KV 从 SSD 读回卡上要走哪些路，带宽和延迟卡在哪一段。</p><span class="topic-tags">SSD · I/O</span></div>
-    <div class="topic"><span class="topic-number">03</span><h3>GPU 和昇腾 NPU</h3><p>同样的事在 CUDA 和昇腾上分别怎么做，差在哪里，还有远程机器上的开发环境。</p><span class="topic-tags">CUDA · Ascend</span></div>
+    <div class="topic"><span class="topic-number">01</span><h3>KV Cache 管理与卸载</h3><p>vLLM 的 KV Cache 管理机制，以及显存、主机内存与 SSD 之间的分层卸载策略。</p><span class="topic-tags">vLLM · KV Cache · Offloading</span></div>
+    <div class="topic"><span class="topic-number">02</span><h3>存储 I/O 与数据通路</h3><p>SSD 到加速卡的数据传输路径，带宽、延迟与瓶颈分析。</p><span class="topic-tags">SSD · I/O</span></div>
+    <div class="topic"><span class="topic-number">03</span><h3>异构加速卡</h3><p>卸载方案在 NVIDIA GPU（CUDA）与昇腾 NPU 上的实现与差异。</p><span class="topic-tags">CUDA · Ascend</span></div>
   </div>
 </section>
 <section class="notes-section" id="notes" aria-labelledby="notes-title">
@@ -21,6 +21,6 @@ layout: default
   {% if site.posts.size > 0 %}
   <div class="post-list">{% for post in site.posts limit: 6 %}{% include post-card.html %}{% endfor %}</div>
   {% else %}
-  <div class="empty-state"><span class="empty-icon" aria-hidden="true">[ &nbsp; ]</span><div><h3>还没有文章</h3><p>第一篇在写了。</p></div></div>
+  <div class="empty-state"><span class="empty-icon" aria-hidden="true">[ &nbsp; ]</span><div><h3>暂无文章</h3><p>文章发布后将显示在此处。</p></div></div>
   {% endif %}
 </section>
