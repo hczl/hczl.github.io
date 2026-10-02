@@ -1,0 +1,11 @@
+{%- comment -%}
+文章插图。用法：
+{% include figure.html src="/assets/images/英文短名/01-xxx.png" alt="图里画了什么" caption="图 1：图注，可省略" width="70%" %}
+src、alt 必填；caption 可省略；width 可省略，用于限制窄图或竖图的最大宽度，默认撑满正文宽度；手机上 width 不生效。
+{%- endcomment -%}
+<figure class="post-figure">
+  <a href="{{ include.src | relative_url }}" target="_blank" rel="noopener"><img src="{{ include.src | relative_url }}" alt="{{ include.alt | escape }}" loading="lazy" decoding="async"{% if include.width %} style="max-width:{{ include.width }}"{% endif %}></a>
+  {%- if include.caption %}
+  <figcaption>{{ include.caption | markdownify | remove: '<p>' | remove: '</p>' | strip }}</figcaption>
+  {%- endif %}
+</figure>
