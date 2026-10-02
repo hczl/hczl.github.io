@@ -1,4 +1,21 @@
 (() => {
+  const root = document.documentElement;
+  const button = document.querySelector('.theme-toggle');
+  const media = matchMedia('(prefers-color-scheme: dark)');
+  const stored = () => { try { return localStorage.getItem('theme'); } catch { return null; } };
+  const apply = theme => {
+    root.dataset.theme = theme;
+    if (button) button.setAttribute('aria-pressed', String(theme === 'dark'));
+  };
+  apply(root.dataset.theme === 'dark' ? 'dark' : 'light');
+  if (button) button.addEventListener('click', () => {
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    apply(next);
+    try { localStorage.setItem('theme', next); } catch {}
+  });
+  media.addEventListener('change', e => { if (!stored()) apply(e.matches ? 'dark' : 'light'); });
+})();
+(() => {
   const article = document.querySelector('.post-content');
   if (!article) return;
   const toc = document.querySelector('.toc');
