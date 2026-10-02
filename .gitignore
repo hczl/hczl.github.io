@@ -5,3 +5,6 @@ _site/
 .bundle/
 vendor/
 .DS_Store
+
+# 本地草稿，不进公开仓库
+_drafts/
