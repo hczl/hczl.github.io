@@ -13,6 +13,7 @@
   <script>(()=>{let t;try{t=localStorage.getItem('theme')}catch(e){}if(t!=='dark'&&t!=='light')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})()</script>
   <link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ '/assets/style.css' | relative_url }}">
+  {% if page.math %}{% include math.html %}{% endif %}
   {% feed_meta %}
   <script src="{{ '/assets/site.js' | relative_url }}" defer></script>
 </head>
