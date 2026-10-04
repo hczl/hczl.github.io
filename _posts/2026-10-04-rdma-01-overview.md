@@ -21,6 +21,8 @@ RDMA（Remote Direct Memory Access）把这些工作交给网卡：
 - 内核旁路：收发数据时，应用直接把请求写进网卡的队列并通知网卡，不需要系统调用。
 - 传输卸载：分段、序号、确认、重传由网卡硬件完成；RDMA WRITE / READ 这类单边操作甚至不需要对端 CPU 参与。
 
+{% include figure.html src="/assets/images/rdma-01-overview/01-tcp-vs-rdma.svg" alt="TCP 发送时数据先由 CPU 拷贝到内核缓冲区再交给网卡，RDMA 由网卡直接 DMA 读写已注册的用户内存，内核只参与控制路径" caption="图 1：TCP 与 RDMA 的数据路径" %}
+
 代价是使用前要做大量准备：打开设备、注册内存、创建队列、和对端交换连接参数，并把连接一步步推进到可收发的状态。这些准备工作正是本系列的主要内容。
 
 ## 参与者
@@ -56,6 +58,8 @@ RDMA（Remote Direct Memory Access）把这些工作交给网卡：
 ## 全流程
 
 下面以 A、B 两台机器建立一条 RC 连接，A 向 B 发起一次 RDMA WRITE 为例，按时间顺序列出各个阶段。
+
+{% include figure.html src="/assets/images/rdma-01-overview/02-full-flow.svg" alt="A、B 两端从打开设备、交换连接信息、推进 QP 状态，到 A 发起 RDMA WRITE、收到 ACK 和 CQE 的时间线" caption="图 2：一次 RDMA WRITE 的完整流程" %}
 
 ### 第一步：打开设备，查询能力
 

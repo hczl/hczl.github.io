@@ -25,6 +25,8 @@ tags: [RDMA, 网络, RoCE, InfiniBand]
 | 链路 | IB 链路层（LRH） | 以太网 | 以太网 | 以太网 |
 | 规范 | IBTA Volume 1 | IBTA Annex A16（2010） | IBTA Annex A17（2014） | IETF RFC 5040 / 5041 / 5044 |
 
+{% include figure.html src="/assets/images/rdma-02-ib-roce-iwarp/01-encapsulation.svg" alt="InfiniBand、RoCE v1 和 RoCE v2 的报文对比，三者的 BTH 及之后部分相同，差别在下层封装" caption="图 1：三种报文的封装方式" %}
+
 可以看出 RoCE 的思路是保留 InfiniBand 的传输层不动，只把下面几层换成以太网：v1 把 IB 链路层换成以太网，v2 进一步把 IB 网络层换成 IP 和 UDP。iWARP 则是另起炉灶，把 RDMA 语义建在 TCP 之上，可靠传输交给 TCP 负责。
 
 ## InfiniBand
@@ -84,6 +86,8 @@ RoCE 保留了 InfiniBand 的传输层，而 InfiniBand 传输层是按“网络
 
 - PFC（Priority-based Flow Control，IEEE 802.1Qbb）：把流量按优先级分成 8 类，交换机某个优先级的缓冲区快满时，向上游发送暂停帧，只暂停这一类流量。RoCE 流量放在一个启用了 PFC 的优先级里，就能避免因缓冲区溢出丢包。PFC 的副作用是暂停会沿着上游逐级扩散，可能造成队头阻塞，极端情况下还会出现暂停风暴或死锁，需要仔细规划。
 - ECN 与拥塞控制：交换机队列超过阈值时，在 IP 头里打上 ECN 拥塞标记；接收端网卡看到标记后，向发送端回送一个 CNP（Congestion Notification Packet）；发送端网卡收到 CNP 后降低这条连接的发送速率。Annex A17 只规定了这套标记和通知机制，具体如何调速由算法决定，目前常用的是 DCQCN。它的作用是在缓冲区被填满、触发 PFC 之前就把速率降下来。
+
+{% include figure.html src="/assets/images/rdma-02-ib-roce-iwarp/02-pfc-ecn.svg" alt="交换机队列超过阈值时给报文打 ECN 标记，接收端回送 CNP 让发送端降速；缓冲区将满时交换机按优先级向上游发送 PFC 暂停帧" caption="图 2：RoCE 网络中的 PFC 与 ECN 拥塞通知" %}
 
 所以 RoCE 网络的部署成本主要不在网卡，而在交换机配置：优先级映射、PFC、ECN 阈值，两端网卡和每一台交换机都要一致。部分较新的网卡也支持在不开启 PFC 的网络上运行 RoCE（NVIDIA 称为 Resilient RoCE），依赖网卡更好的丢包恢复和拥塞控制，但在丢包较多的网络上性能仍然会受影响。
 
