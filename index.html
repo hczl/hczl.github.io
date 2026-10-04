@@ -16,6 +16,12 @@ layout: default
     <div class="topic"><span class="topic-number">03</span><h3>异构加速卡</h3><p>卸载方案在 NVIDIA GPU（CUDA）与昇腾 NPU 上的实现与差异。</p><span class="topic-tags">CUDA · Ascend</span></div>
   </div>
 </section>
+<section class="series-home" aria-labelledby="series-title">
+  <div class="section-heading"><h2 id="series-title">系列</h2><a class="text-link small" href="{{ '/series/' | relative_url }}">全部系列 ↗</a></div>
+  <div class="series-grid">{% for s in site.data.series %}{% assign sp = site.posts | where: "series", s.id | sort: "series_order" %}{% assign total = s.outline.size | default: 0 %}{% assign last = sp | last %}{% if last and last.series_order > total %}{% assign total = last.series_order %}{% endif %}{% assign first = sp | first %}
+    <article class="series-card"><h3><a href="{{ '/series/' | relative_url }}#{{ s.id }}">{{ s.title | escape }}</a></h3><p>{{ s.description | escape }}</p><div class="series-card-foot"><span class="series-progress">已发布 {{ sp.size }} / 共 {{ total }} 篇</span>{% if first %}<a class="text-link small" href="{{ first.url | relative_url }}">从第一篇读起 →</a>{% endif %}</div></article>{% endfor %}
+  </div>
+</section>
 <section class="notes-section" id="notes" aria-labelledby="notes-title">
   <div class="section-heading"><h2 id="notes-title">最新笔记 <span class="count">{{ site.posts | size }}</span></h2><a class="text-link small" href="{{ '/archive/' | relative_url }}">全部归档 ↗</a></div>
   {% if site.posts.size > 0 %}

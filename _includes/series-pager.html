@@ -1,0 +1,25 @@
+{%- comment -%}文章页末尾的系列上一篇 / 下一篇，front matter 有 series 时由 post 布局引入。{%- endcomment -%}
+{%- assign s = site.data.series | where: "id", page.series | first -%}
+{%- if s -%}
+{%- assign sp = site.posts | where: "series", s.id | sort: "series_order" -%}
+{%- for p in sp -%}{%- if p.url == page.url -%}{%- assign pos = forloop.index0 -%}{%- endif -%}{%- endfor -%}
+{%- assign prev_i = pos | minus: 1 -%}{%- assign next_i = pos | plus: 1 -%}
+{%- assign prev = nil -%}{%- if pos > 0 -%}{%- assign prev = sp[prev_i] -%}{%- endif -%}
+{%- assign next = sp[next_i] -%}
+<nav class="series-pager" aria-label="{{ s.title | escape }}系列翻页">
+  {%- if prev -%}
+  {%- assign idx = prev.series_order | minus: 1 %}
+  <a class="pager-prev" href="{{ prev.url | relative_url }}"><span>← 上一篇</span><strong>{{ s.outline[idx] | default: prev.title | escape }}</strong></a>
+  {%- else %}
+  <span class="pager-prev pager-empty"><span>← 上一篇</span><strong>这是本系列第一篇</strong></span>
+  {%- endif -%}
+  {%- if next -%}
+  {%- assign idx = next.series_order | minus: 1 %}
+  <a class="pager-next" href="{{ next.url | relative_url }}"><span>下一篇 →</span><strong>{{ s.outline[idx] | default: next.title | escape }}</strong></a>
+  {%- elsif s.outline[page.series_order] %}
+  <span class="pager-next pager-empty"><span>下一篇 · 待发布</span><strong>{{ s.outline[page.series_order] | escape }}</strong></span>
+  {%- else %}
+  <span class="pager-next pager-empty"><span>下一篇</span><strong>本系列已完结</strong></span>
+  {%- endif %}
+</nav>
+{%- endif -%}
