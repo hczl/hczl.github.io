@@ -1,0 +1,22 @@
+{%- comment -%}
+用法：{% include series-list.html series=s current=page.url dates=true %}，s 是 _data/series.yml 里的一个系列；current、dates 可省略。
+按篇号列出全系列：已发布的链接到文章，_data/series.yml 里计划了但还没发布的显示为“待发布”。
+{%- endcomment -%}
+{%- assign s = include.series -%}
+{%- assign sp = site.posts | where: "series", s.id | sort: "series_order" -%}
+{%- assign total = s.outline.size | default: 0 -%}
+{%- assign last = sp | last -%}
+{%- if last and last.series_order > total -%}{%- assign total = last.series_order -%}{%- endif -%}
+<ol class="series-list">
+{%- for i in (1..total) -%}
+  {%- assign p = sp | where: "series_order", i | first -%}
+  {%- assign idx = i | minus: 1 -%}
+  {%- assign label = s.outline[idx] | default: p.title -%}
+  {%- assign num = i | prepend: '0' | slice: -2, 2 -%}
+  {%- if p %}
+  <li{% if p.url == include.current %} class="is-current"{% endif %}><span class="series-num">{{ num }}</span><a href="{{ p.url | relative_url }}"{% if p.url == include.current %} aria-current="page"{% endif %}>{{ label | escape }}</a>{% if include.dates %}<time datetime="{{ p.date | date_to_xmlschema }}">{{ p.date | date: '%Y.%m.%d' }}</time>{% endif %}</li>
+  {%- else %}
+  <li class="is-pending"><span class="series-num">{{ num }}</span><span>{{ label | escape }}</span><span class="series-pending">待发布</span></li>
+  {%- endif -%}
+{%- endfor %}
+</ol>

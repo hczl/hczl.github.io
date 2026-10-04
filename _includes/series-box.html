@@ -1,0 +1,14 @@
+{%- comment -%}文章页顶部的系列目录，front matter 有 series 时由 post 布局引入。{%- endcomment -%}
+{%- assign s = site.data.series | where: "id", page.series | first -%}
+{%- if s -%}
+{%- assign sp = site.posts | where: "series", s.id -%}
+{%- assign total = s.outline.size | default: 0 -%}
+{%- if page.series_order > total -%}{%- assign total = page.series_order -%}{%- endif -%}
+<nav class="series-box" aria-label="系列目录">
+  <details>
+    <summary><span class="series-label">系列</span><span class="series-name">{{ s.title | escape }}</span><span class="series-pos">第 {{ page.series_order }} 篇，共 {{ total }} 篇</span><span class="series-toggle" aria-hidden="true">目录</span></summary>
+    {% include series-list.html series=s current=page.url %}
+    <a class="text-link small series-all" href="{{ '/series/' | relative_url }}#{{ s.id }}">系列页 ↗</a>
+  </details>
+</nav>
+{%- endif -%}

@@ -1,0 +1,42 @@
+/* 系列：文章页顶部目录、末尾翻页、系列页、首页系列卡片。颜色只用 style.css 里的变量，黑夜模式自动适配。 */
+.series-box{margin-top:22px;max-width:740px;border:1px solid var(--line);border-radius:6px;background:var(--soft);font-size:13px}
+.series-box summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px;cursor:pointer;list-style:none}
+.series-box summary::-webkit-details-marker{display:none}
+.series-label{font:10px var(--mono);letter-spacing:1.2px;color:var(--muted)}
+.series-name{font-weight:600;color:var(--ink)}
+.series-pos{color:var(--muted)}
+.series-toggle{margin-left:auto;color:var(--blue);font-size:12px}
+.series-toggle:after{content:" ▾"}.series-box details[open] .series-toggle:after{content:" ▴"}
+.series-box details>.series-list{margin:0;padding:4px 16px 6px;border-top:1px solid var(--line)}
+.series-all{display:inline-block;margin:4px 16px 12px}
+.series-list{list-style:none;padding:0;margin:0}
+.series-list li{display:flex;align-items:baseline;gap:12px;padding:7px 0;line-height:1.6;color:var(--ink)}
+.series-list li+li{border-top:1px dashed var(--line)}
+.series-num{font:11px var(--mono);color:var(--muted);flex:none;width:20px}
+.series-list a:hover{color:var(--blue)}
+.series-list time{margin-left:auto;flex:none;font:11px var(--mono);color:var(--muted);padding-left:12px}
+.series-list .is-current a{color:var(--blue);font-weight:600}
+.series-list .is-pending{color:var(--muted)}
+.series-pending{margin-left:auto;flex:none;font-size:11px;border:1px dashed var(--line);border-radius:3px;padding:0 6px}
+.series-pager{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:50px}
+.series-pager>*{display:flex;flex-direction:column;gap:4px;padding:15px 18px;border:1px solid var(--line);border-radius:6px;min-width:0}
+.series-pager span{font-size:12px;color:var(--muted)}
+.series-pager strong{font-size:15px;font-weight:600;line-height:1.5}
+.series-pager a:hover{border-color:var(--blue)}.series-pager a:hover strong{color:var(--blue)}
+.series-pager .pager-next{text-align:right}
+.series-pager .pager-empty strong{color:var(--muted);font-weight:500}
+.series-pager+.post-end{margin-top:30px}
+.series-section{margin-bottom:48px}
+.series-section .section-heading{border-bottom:1px solid var(--line);padding-bottom:13px;margin-bottom:12px}
+.series-desc{font-size:14px;color:var(--muted);margin:0 0 10px;max-width:740px}
+.series-section .series-list{max-width:740px;font-size:15px}
+.series-home{padding:38px 0 6px}
+.series-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.series-card{border:1px solid var(--line);border-radius:7px;padding:20px 22px;display:flex;flex-direction:column}
+.series-card h3{font-size:17px;font-weight:600;margin:0 0 8px}
+.series-card p{font-size:13px;color:var(--muted);line-height:1.8;margin:0 0 14px;flex:1}
+.series-card-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.series-progress{font:11px var(--mono);color:var(--muted)}
+.tags .series-tag{font-size:10px;color:var(--blue);border:1px solid currentColor;border-radius:3px;padding:1px 6px}
+.tags .series-tag:hover{text-decoration:none;opacity:.8}
+@media(max-width:680px){.series-grid,.series-pager{grid-template-columns:1fr}.series-pager .pager-next{text-align:left}.series-box summary{padding:10px 13px}.series-box details>.series-list{padding:4px 13px 6px}.series-all{margin:4px 13px 12px}.series-list time{display:none}.series-home{padding-top:29px}.site-header nav{gap:18px}}

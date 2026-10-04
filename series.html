@@ -1,0 +1,17 @@
+---
+layout: default
+title: 系列文章
+permalink: /series/
+---
+<header class="page-header"><div class="eyebrow">系列</div><h1>系列文章</h1><p>成体系的笔记按系列整理，每个系列按篇号从头读到尾即可。系列以外的单篇文章见<a class="text-link" href="{{ '/archive/' | relative_url }}">归档</a>。</p></header>
+{% for s in site.data.series %}
+{%- assign sp = site.posts | where: "series", s.id | sort: "series_order" -%}
+{%- assign total = s.outline.size | default: 0 -%}
+{%- assign last = sp | last -%}
+{%- if last and last.series_order > total -%}{%- assign total = last.series_order -%}{%- endif -%}
+<section class="series-section" id="{{ s.id }}" aria-labelledby="series-{{ s.id }}">
+  <div class="section-heading"><h2 id="series-{{ s.id }}">{{ s.title | escape }}</h2><span class="section-kicker">已发布 {{ sp.size }} / 共 {{ total }} 篇</span></div>
+  {% if s.description %}<p class="series-desc">{{ s.description | escape }}</p>{% endif %}
+  {% include series-list.html series=s dates=true %}
+</section>
+{% endfor %}

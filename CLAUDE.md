@@ -7,6 +7,7 @@
 - `_posts/YYYY-MM-DD-英文短名.md`：文章。短名就是网址，发布后不要改。
 - `templates/post.md`：新文章模板，起稿时从这里复制。
 - `assets/images/英文短名/`：文章图片，按文章分目录。普通图用 Markdown 图片语法，要图注或限宽用 `{% include figure.html ... %}`，写法见 `WRITING.md`。AI 配图按 `templates/image-prompt.md` 的 Excalidraw 风格模板生成，接口地址和密钥不进仓库。图片的 `alt` 和图注按正文文风写，不要编造图中没有的数据。
+- 系列：在 `_data/series.yml` 定义系列和计划篇目，文章 front matter 写 `series: <id>` 和 `series_order: <篇号>`，系列目录和上一篇 / 下一篇自动生成，不要手写互链。详见 `WRITING.md` 的“系列文章”。
 - 发布方式和 front matter 格式见 `WRITING.md`。
 
 ## 写作风格

@@ -1,4 +1,4 @@
 <article class="post-card">
   <time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: '%Y.%m.%d' }}</time>
-  <div><h3><a href="{{ post.url | relative_url }}">{{ post.title | escape }} <span aria-hidden="true">↗</span></a></h3><p>{{ post.description | default: post.excerpt | strip_html | truncate: 130 | escape }}</p><div class="tags">{% for tag in post.tags %}<span>{{ tag | escape }}</span>{% endfor %}</div></div>
+  <div><h3><a href="{{ post.url | relative_url }}">{{ post.title | escape }} <span aria-hidden="true">↗</span></a></h3><p>{{ post.description | default: post.excerpt | strip_html | truncate: 130 | escape }}</p><div class="tags">{% if post.series %}{% assign ps = site.data.series | where: "id", post.series | first %}{% if ps %}<a class="series-tag" href="{{ '/series/' | relative_url }}#{{ ps.id }}">{{ ps.title | escape }} · {{ post.series_order | prepend: '0' | slice: -2, 2 }}</a>{% endif %}{% endif %}{% for tag in post.tags %}<span>{{ tag | escape }}</span>{% endfor %}</div></div>
 </article>

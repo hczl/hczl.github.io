@@ -3,6 +3,8 @@ title: "RDMA 入门（二）：InfiniBand、RoCE 与 iWARP"
 description: "同一套 verbs 接口下面有三种网络实现。本篇比较它们的协议分层、报文封装、寻址方式，以及各自对网络提出的要求。"
 date: 2026-10-05 02:00:00 +0800
 tags: [RDMA, 网络, RoCE, InfiniBand]
+series: rdma
+series_order: 2
 ---
 
 上一篇说到 QP、PSN、GID 这些概念时，没有交代它们跑在什么网络上。应用调用的 verbs 接口是同一套，但报文在线路上的样子、地址怎么表示、丢包了由谁负责，取决于底下用的是 InfiniBand、RoCE 还是 iWARP。后面讲建链和传输时会反复用到这些差异，所以这一篇先把三者摆在一起比较。
