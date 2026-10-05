@@ -3,7 +3,6 @@
 :root{--rv-mark:rgba(255,196,0,.32);--rv-mark-line:#d99a00;--rv-pick:rgba(36,83,219,.08);--rv-done:#2f7d4f;--rv-kept:#8a6a2b;--rv-shadow:0 -6px 24px rgba(20,28,40,.12)}
 :root[data-theme=dark]{--rv-mark:rgba(255,196,0,.22);--rv-mark-line:#b98a1f;--rv-pick:rgba(130,163,255,.12);--rv-done:#7cc79a;--rv-kept:#d5b26f;--rv-shadow:0 -6px 24px rgba(0,0,0,.45)}
 .review-shell .site-header{height:auto;padding-block:18px}
-.review-stamp{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .review-shell nav{display:flex;align-items:center;gap:16px}
 .review-shell .theme-toggle{margin-left:0}
 .review-shell main{padding-bottom:120px}
@@ -63,4 +62,19 @@
 .rv-link{all:unset;cursor:pointer;font-size:13px;color:var(--blue);padding:4px 0}
 .rv-empty{color:var(--muted);font-size:14px}
 .rv-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:50;max-width:calc(100% - 32px);box-sizing:border-box;padding:10px 14px;border-radius:8px;background:var(--ink);color:var(--paper);font-size:13px;line-height:1.5;box-shadow:var(--rv-shadow)}
-@media (max-width:640px){.review-stamp{display:none}}
+.rv-home{padding-block:8px 40px;max-width:760px}
+.rv-home-head{padding-bottom:8px}
+.rv-home-head p:last-child{max-width:62ch}
+.rv-home-section{display:grid;gap:12px;margin-top:28px}
+.rv-home-h2{display:flex;align-items:baseline;gap:10px;margin:0;font-size:15px;font-weight:600;color:var(--ink)}
+.rv-home-h2 span{font-size:12px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+.rv-cards{display:grid;gap:10px}
+.rv-card{display:grid;gap:6px;padding:14px 16px;border:1px solid var(--line);border-radius:8px;color:var(--ink);text-decoration:none;min-width:0}
+.rv-card:hover{border-color:var(--blue)}
+.rv-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.rv-card-eyebrow{font-size:12px;color:var(--blue)}
+.rv-card-title{font-size:16px;font-weight:600;line-height:1.5;text-wrap:balance}
+.rv-card-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rv-card-counts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rv-card-none{font-size:12px;color:var(--muted)}
+.rv-loading{padding-block:40px}
