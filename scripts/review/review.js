@@ -413,30 +413,35 @@
       h('span', { class: 'rv-card-eyebrow' }, eyebrow),
       h('span', { class: 'rv-card-title' }, p.title),
       h('span', { class: 'rv-card-meta' },
-        h('span', {}, p.kind === 'draft' ? '草稿' : `已发布 ${fmtDate(p.date)}`),
+        h('span', {}, p.kind === 'draft' ? '草稿' : stageOf(p) === 'review' ? `修改已发布文章（${fmtDate(p.date)}）` : `发布于 ${fmtDate(p.date)}`),
         h('span', {}, `审阅稿更新于 ${fmtTime(p.builtAt)}`)),
       h('span', { class: 'rv-card-counts' },
         n.open ? h('span', { class: 'rv-chip rv-chip-open' }, `待处理 ${n.open}`) : null,
         n.handled ? h('span', { class: 'rv-chip rv-chip-done' }, `已处理 ${n.handled}`) : null,
         !n.open && !n.handled ? h('span', { class: 'rv-card-none' }, '还没有批注') : null));
   };
+  // stage：review = 待审阅（新草稿，或拿回来修改的已发布文章）；published = 已发布，审阅结束后归档。
+  const stageOf = p => p.stage || (p.kind === 'draft' ? 'review' : 'published');
+  let homeTab = 'review';
   const renderHome = () => {
-    const drafts = posts.filter(p => p.kind === 'draft').sort((a, b) => String(b.builtAt).localeCompare(String(a.builtAt)));
-    const published = posts.filter(p => p.kind !== 'draft').sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    const openTotal = comments.filter(c => c.status === 'open' && posts.some(p => p.slug === c.slug)).length;
+    const pending = posts.filter(p => stageOf(p) === 'review').sort((a, b) => String(b.builtAt).localeCompare(String(a.builtAt)));
+    const done = posts.filter(p => stageOf(p) !== 'review').sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const openTotal = comments.filter(c => c.status === 'open' && pending.some(p => p.slug === c.slug)).length;
     const head = h('header', { class: 'page-header rv-home-head' },
       h('p', { class: 'eyebrow' }, '审阅台'),
-      h('h1', {}, '审阅稿'),
+      h('h1', {}, homeTab === 'review' ? '待审阅' : '已发布'),
       h('p', {}, dbState === 'none' ? '这个页面需要在 Claude App 或 claude.ai 里打开，才能看到审阅稿和批注。'
-        : `${drafts.length} 篇草稿，${published.length} 篇已发布。${openTotal ? `共有 ${openTotal} 条批注待处理，` : ''}点进文章后选中文字或点一下段落即可批注；看完在线程里说“按批注改”。`));
-    const section = (label, list, empty) => h('section', { class: 'rv-home-section' },
-      h('h2', { class: 'rv-home-h2' }, label, h('span', {}, String(list.length))),
-      list.length ? h('div', { class: 'rv-cards' }, list.map(card)) : h('p', { class: 'rv-empty' }, empty));
-    main.replaceChildren(h('div', { class: 'rv-home' }, head,
-      dbState === 'connecting' ? h('p', { class: 'rv-empty' }, '正在读取审阅稿……') : [
-        section('草稿', drafts, '目前没有草稿。新草稿写好后，Claude 会把它加到这里。'),
-        section('已发布', published, '还没有已发布文章的审阅稿。'),
-      ]));
+        : homeTab === 'review'
+          ? `${pending.length ? `${pending.length} 篇等你审阅${openTotal ? `，${openTotal} 条批注待处理` : ''}。` : ''}点进文章后选中文字或点一下段落即可批注；看完在线程里说“按批注改”。`
+          : '已经发布的文章和它们审阅时的批注记录。想改哪一篇，在线程里说一声，Claude 会把它放回待审阅。'));
+    const tab = (key, label, n) => h('button', { class: 'rv-tab', type: 'button', 'aria-pressed': String(homeTab === key), onclick: () => { homeTab = key; renderHome(); } }, `${label} ${n}`);
+    const list = homeTab === 'review' ? pending : done;
+    const empty = homeTab === 'review' ? '现在没有待审阅的文章。新草稿写好后，Claude 会把它加到这里。' : '还没有已发布的文章。';
+    main.replaceChildren(h('div', { class: 'rv-home' },
+      h('div', { class: 'rv-home-tabs', role: 'group', 'aria-label': '切换列表' }, tab('review', '待审阅', pending.length), tab('published', '已发布', done.length)),
+      head,
+      dbState === 'connecting' ? h('p', { class: 'rv-empty' }, '正在读取审阅稿……')
+        : list.length ? h('div', { class: 'rv-cards' }, list.map(card)) : h('p', { class: 'rv-empty' }, empty)));
   };
 
   // ---------- 文章页 ----------

@@ -78,3 +78,4 @@
 .rv-card-counts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .rv-card-none{font-size:12px;color:var(--muted)}
 .rv-loading{padding-block:40px}
+.rv-home-tabs{display:flex;gap:8px;margin-top:20px;font-variant-numeric:tabular-nums}

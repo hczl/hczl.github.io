@@ -105,6 +105,7 @@ for (const s of sources) {
     title: pick(html, /<h1>([\s\S]*?)<\/h1>/) || s.slug,
     description: pick(html, /<meta name="description" content="([^"]*)"/),
     kind: s.isPost ? 'post' : 'draft',
+    stage: 'review',   // 加进审阅台就是待审阅；发布后由 Claude 改成 published
     date: pick(html, /<time datetime="([^"]+)"/),
     series: pick(html, /series-name">([^<]*)</),
     seriesOrder: order ? Number(order) : null,
