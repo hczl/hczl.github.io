@@ -56,3 +56,47 @@
     table.before(wrap); wrap.append(table);
   });
 })();
+(() => {
+  const article = document.querySelector('.post-content');
+  if (!article) return;
+  const images = [...article.querySelectorAll('img')].filter(img => {
+    const link = img.closest('a');
+    return !link || link.href === img.currentSrc || link.href === img.src;
+  });
+  if (!images.length || typeof HTMLDialogElement !== 'function') return;
+  const dialog = document.createElement('dialog');
+  dialog.className = 'lightbox';
+  dialog.setAttribute('aria-label', '图片预览');
+  dialog.innerHTML = '<button class="lightbox-close" type="button" aria-label="关闭预览">×</button><figure><img alt=""><figcaption></figcaption></figure>';
+  document.body.append(dialog);
+  const view = dialog.querySelector('img');
+  const caption = dialog.querySelector('figcaption');
+  const open = img => {
+    const src = img.currentSrc || img.src;
+    const svg = /\.svg(\?|#|$)/i.test(src);
+    view.src = src; view.alt = img.alt;
+    dialog.classList.toggle('is-svg', svg);
+    const w = img.naturalWidth, h = img.naturalHeight;
+    view.style.setProperty('--ratio', w && h ? w / h : 1.6);
+    view.style.maxWidth = svg || !w ? '' : w + 'px';
+    const figcaption = img.closest('figure')?.querySelector('figcaption');
+    caption.innerHTML = figcaption ? figcaption.innerHTML : '';
+    caption.hidden = !figcaption;
+    document.documentElement.classList.add('lightbox-open');
+    dialog.showModal();
+  };
+  dialog.addEventListener('click', e => { if (!e.target.closest('figcaption a')) dialog.close(); });
+  dialog.addEventListener('close', () => {
+    document.documentElement.classList.remove('lightbox-open');
+    view.removeAttribute('src');
+  });
+  images.forEach(img => {
+    img.classList.add('zoomable');
+    const link = img.closest('a');
+    if (link) link.setAttribute('aria-label', '放大查看：' + img.alt);
+    (link || img).addEventListener('click', e => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+      e.preventDefault(); open(img);
+    });
+  });
+})();
