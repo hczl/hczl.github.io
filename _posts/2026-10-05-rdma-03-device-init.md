@@ -57,8 +57,8 @@ RoCE 网卡上，RDMA 设备的端口和以太网网口一一绑定，端口状�
 | `max_qp_wr` | 单个队列最多容纳多少条 WQE | 创建 QP 时 `max_send_wr`、`max_recv_wr` 不能超过它，即 SQ、RQ 深度的上限 |
 | `max_sge` | 单条 WQE 最多带几个 SGE | 创建 QP 时 `max_send_sge`、`max_recv_sge` 的上限 |
 | `max_cq`、`max_cqe` | 最多能创建多少个 CQ，单个 CQ 最多多少条 CQE | 创建 CQ 时深度的上限 |
-| `max_mr`、`max_mr_size` | 最多能注册多少个 MR，单个 MR 最大多大 | 内存注册（第五篇） |
-| `max_pd` | 最多能创建多少个 PD | 资源创建（第四篇） |
+| `max_mr`、`max_mr_size` | 最多能注册多少个 MR，单个 MR 最大多大 | 注册 MR 时数量和长度的上限 |
+| `max_pd` | 最多能创建多少个 PD | 创建 PD 时数量的上限 |
 | `max_qp_rd_atom` | 单个 QP 作为响应方，最多同时处理多少个对端发来的 READ 或原子操作 | RTR 阶段的 `max_dest_rd_atomic` 不能超过它 |
 | `max_qp_init_rd_atom` | 单个 QP 作为发起方，最多同时发出多少个 READ 或原子操作 | RTS 阶段的 `max_rd_atomic` 不能超过它 |
 | `atomic_cap` | 是否支持原子操作，以及原子性的保证范围 | 决定能否使用 Compare-and-Swap、Fetch-and-Add |
@@ -155,7 +155,7 @@ RoCE 端口没有 LID，GID 是唯一的寻址方式，GID 表的内容由网口
 - 选了 IPv6 链路本地地址对应的项，而对端用的是 IPv4 地址，两端地址不在同一网络。
 - 网络按 VLAN 标签里的优先级（PCP）识别 RoCE 流量时，选了不带 VLAN 的项，报文没有优先级标记，交换机不会对它启用 PFC，丢包时性能明显下降。
 
-这些错误在建链阶段都不会报错，`ibv_modify_qp` 照样成功，直到发送数据时重试超时，CQE 中出现重试次数用尽的错误。因此 GID 索引不能在程序里写死成某个数字：不同机器上 IP 地址的数量和顺序不同，同样的索引可能对应完全不同的地址。程序应当遍历 GID 表，按类型（RoCE v2）和地址（与对端同网段的 IPv4 地址）挑选；使用 RDMA CM 建链时，这一步由 CM 根据 IP 地址自动完成，这也是 RDMA CM 被广泛使用的原因之一，第七篇会再讨论。
+这些错误在建链阶段都不会报错，`ibv_modify_qp` 照样成功，直到发送数据时重试超时，CQE 中出现重试次数用尽的错误。因此 GID 索引不能在程序里写死成某个数字：不同机器上 IP 地址的数量和顺序不同，同样的索引可能对应完全不同的地址。程序应当遍历 GID 表，按类型（RoCE v2）和地址（与对端同网段的 IPv4 地址）挑选；使用 RDMA CM 建链时，这一步由 CM 根据 IP 地址自动完成，这也是 RDMA CM 被广泛使用的原因之一。
 
 ## 初始化阶段的产出
 
@@ -171,7 +171,7 @@ RoCE 端口没有 LID，GID 是唯一的寻址方式，GID 表的内容由网口
 | P_Key 索引 | `ibv_query_pkey` | RESET → INIT 的 `pkey_index` |
 | 各种上限 | `ibv_query_device` | 创建 CQ、QP 时的容量参数，RTR / RTS 的 READ 并发数 |
 
-还缺的是 QPN 和起始 PSN：QPN 要等 QP 创建出来才有，PSN 由应用自己选定。下一篇讲资源创建：PD、CQ、QP 各自的参数和作用，以及 QP 创建时网卡分配了什么。
+还缺的是 QPN 和起始 PSN：QPN 要等 QP 创建出来才有，PSN 由应用自己选定。
 
 ## 参考资料
 
