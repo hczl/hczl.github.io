@@ -124,9 +124,11 @@ const katexCss = read('assets/katex/katex.min.css').replace(/url\((fonts\/[^)]+?
 
 // site.js 的第二段（目录、代码复制按钮、表格滚动）要在每篇正文载入后再跑一次，抽成函数。
 const siteJs = read('assets/site.js');
+// 只取这一段到它自己的结尾 `})();`，后面的图片放大预览等段落不带进来。
 const enhanceAt = siteJs.indexOf('(() => {\n  const article');
-if (enhanceAt < 0 || !siteJs.trimEnd().endsWith('})();')) { console.error('assets/site.js 结构变了，需要更新 build.mjs 里抽取正文增强脚本的方式'); process.exit(1); }
-const enhanceJs = 'window.__enhance = () => {' + siteJs.slice(enhanceAt + '(() => {'.length).trimEnd().replace(/\}\)\(\);$/, '};');
+const enhanceEnd = enhanceAt < 0 ? -1 : siteJs.indexOf('\n})();', enhanceAt);
+if (enhanceEnd < 0) { console.error('assets/site.js 结构变了，需要更新 build.mjs 里抽取正文增强脚本的方式'); process.exit(1); }
+const enhanceJs = 'window.__enhance = () => {' + siteJs.slice(enhanceAt + '(() => {'.length, enhanceEnd) + '\n};';
 
 const css = [read('assets/style.css'), read('assets/series.css'), katexCss, fs.readFileSync(path.join(here, 'review.css'), 'utf8')].join('\n');
 const shell = `<title>博客审阅台</title>
