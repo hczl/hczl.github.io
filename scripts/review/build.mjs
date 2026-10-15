@@ -94,7 +94,7 @@ for (const s of sources) {
     return `<img${pre}data-file="${src}" ${src.endsWith('.svg') ? 'data-svg ' : ''}src="${uri}"`;
   });
   // 图片外层的“查看原图”链接在审阅页里没有意义，交给批注层接管。
-  article = article.replace(/<a href="\/assets\/images\/[^"]+" target="_blank" rel="noopener">/g, '<a class="figure-link">');
+  article = article.replace(/<a href="\/assets\/images\/[^"]+">/g, '<a class="figure-link">');
   // 站内链接指向线上站点。
   article = article.replace(/href="\/(?!\/)([^"]*)"/g, `href="${SITE}/$1" target="_blank" rel="noopener"`);
   fs.writeFileSync(path.join(outDir, 'posts', `${s.slug}.html`), article);
