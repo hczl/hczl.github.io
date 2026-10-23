@@ -27,6 +27,5 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - vendor
-  - scripts
   - templates
   - .bundle
