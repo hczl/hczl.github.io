@@ -35,3 +35,17 @@
     - 把注意力完整推一遍
     - 推理中的数学
     - 后训练中的数学
+- id: vllm
+  title: vLLM 入门
+  description: 以一个编程智能体的多轮请求为例，按时间顺序说明 vLLM 的启动、调度、KV Cache 管理、前缀缓存、抢占和一次前向，最后对比多卡和昇腾 NPU。实验在单张 RTX 4090 上用 Qwen3-8B 完成。
+  outline:
+    - 一条请求在 vLLM 里的完整流程
+    - 启动：从 vllm serve 到能接请求
+    - KV Cache 有多大
+    - 调度器的一步
+    - PagedAttention 与 block table
+    - 前缀缓存
+    - 显存不够时：抢占与重算
+    - 一次前向的完整过程
+    - 多卡并行下的 KV
+    - 昇腾 NPU 上的 vLLM
