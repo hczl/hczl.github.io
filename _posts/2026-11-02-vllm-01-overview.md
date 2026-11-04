@@ -41,7 +41,7 @@ vllm serve Qwen/Qwen3-8B \
   --enable-prompt-tokens-details
 ```
 
-第一次启动没有加 `--gpu-memory-utilization`，用的是默认值 0.9，结果报错退出：留给 KV Cache 的显存只有 4.48 GiB，放不下一条 32768 token 的请求要的 4.5 GiB，差了 0.02 GiB。调到 0.92 后才启动成功。`--enable-prompt-tokens-details` 让返回结果里带上命中缓存的 token 数，下表的“命中缓存”一列就是这个值。
+第一次启动没有加 `--gpu-memory-utilization`，默认值就是 0.92，结果报错退出：留给 KV Cache 的显存只有 4.48 GiB，放不下一条 32768 token 的请求要的 4.5 GiB，差了 0.02 GiB。第二次显式写上 0.92 再启动就成功了，KV Cache 有 5.48 GiB。两次参数一样，差别在于第一次是冷启动，测显存时顺带做了 torch.compile 编译，多占了约 1 GiB；第二次直接用了编译缓存。下一篇讲启动时再细说。`--enable-prompt-tokens-details` 让返回结果里带上命中缓存的 token 数，下表的“命中缓存”一列就是这个值。
 
 智能体每轮用流式接口请求，关闭 Qwen3 的思考模式，一轮请求的写法如下（消息内容从略）：
 
@@ -83,8 +83,8 @@ curl -N localhost:8000/v1/chat/completions -H 'Content-Type: application/json' -
 
 引擎进程启动时划分显存。按 0.92 的比例，可用的是 21.64 GiB，其中：
 
-- 模型权重占 15.27 GiB。
-- 前向的峰值临时张量占 0.62 GiB，CUDA Graph 占 0.23 GiB 左右。
+- 模型权重占 15.27 GiB，CUDA 上下文等不归 PyTorch 管的显存占 0.27 GiB。
+- 前向的峰值临时张量约 0.2 GiB；为 CUDA Graph 预留 0.43 GiB，实际只用了 0.23 GiB。
 - 剩下的 5.48 GiB 全部预先分配给 KV Cache，切成固定大小的 block。每个 block 存 16 个 token 的 KV。Qwen3-8B 有 36 层、8 个 KV 头、每个头 128 维，bf16 下每个 token 的 K 和 V 一共 $$2 \times 36 \times 8 \times 128 \times 2 = 147456$$ 字节，即 144 KiB，一个 block 是 2.25 MiB。
 
 启动日志里的这一行给出了总容量：
