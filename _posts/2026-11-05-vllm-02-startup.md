@@ -184,7 +184,7 @@ KV Cache 分配好之后，引擎用假数据预热一遍各个算子。采样�
 2026-11-04 11:45:54,706 - INFO - core.py:564 - flashinfer.jit: Building JIT module sampling; this can take several minutes on first use.
 ```
 
-第 2 次启动卡在这一步，下一行日志出现在 11:47:12，编译用了 77 秒。我一开始以为这段空白是 Triton 在编译，看日志才知道是 FlashInfer。第 1 次启动也清了 FlashInfer 的缓存，但它在第七步就退出了，没走到这一步，所以这笔账落到了第 2 次头上；第 3 次缓存都在，这一步不到 1 秒。装上 flashinfer-cubin 这个包能不能省掉这次编译，我没有试。
+第 2 次启动卡在这一步，下一行日志出现在 11:47:12，编译用了 77 秒。我一开始以为这段空白是 Triton 在编译，看日志才知道是 FlashInfer。第 1 次启动也清了 FlashInfer 的缓存，但它在第七步就退出了，没走到这一步，所以这次编译落到了第 2 次启动；第 3 次缓存都在，这一步不到 1 秒。装上 flashinfer-cubin 这个包能不能省掉这次编译，我没有试。
 
 ### 第九步：正式捕获 CUDA Graph（23～29 s）
 
@@ -205,7 +205,7 @@ CUDA graph pool memory: 0.23 GiB (actual), 0.43 GiB (estimated), difference: 0.2
 
 11:48:07 引擎报告初始化完成，“init engine (profile, create kv cache, warmup model) took 14.58 s”。API 服务进程预热对话模板（0.37 秒），注册路由，11:48:09 开始监听 8000 端口。
 
-最后一行汇总把显存账又算了一遍：
+最后一行日志汇总了各项显存：
 
 ```text
 Free memory on device (23.13/23.52 GiB) on startup. Desired GPU memory utilization is (0.9, 21.16 GiB). Actual usage is 15.54 GiB for consumed memory (weights + non-torch), 0.62 GiB for peak activation, and 0.23 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=4975264666` (4.63 GiB) to fit into requested memory, or `--kv-cache-memory=7086991872` (6.6 GiB) to fully utilize gpu memory. Current kv cache memory in use is 5.01 GiB.
@@ -236,7 +236,7 @@ Enforce eager set, disabling torch.compile, CUDAGraphs, and JIT kernel warmup.
 
 prefill 的部分两者几乎一样，第 2、3 轮的首 token 时间相差不到 0.01 秒，因为一步 2048 个 token 超过了 512，本来就不用图。decode 每步只有 1 个 token，CPU 逐个发射算子的开销占比大，用图时快 2% 到 22%，上下文越短差得越多。
 
-## 显存账汇总
+## 各次启动的显存划分
 
 | 项目 | 0.9 冷启动 | 0.9 热启动 | 0.9 eager | 0.92 冷启动 | 0.92 热启动 |
 | --- | ---: | ---: | ---: | ---: | ---: |
