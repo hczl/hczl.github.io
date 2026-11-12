@@ -1,0 +1,60 @@
+# 第七篇的抢占示意动画。数字是示意，不是实测。
+# blocks 按物理位置列 8 个 block："." 空闲，"A1" 被请求 A 占用，
+# "~B1" 空闲但还挂着哈希、可被命中，后缀 ":hit" 命中缓存，":re" 要重算。
+# free 是空闲队列从队头到队尾的顺序，只在需要时给出。
+title: 示意：KV Cache 只有 8 个 block，A、B、C 三个请求的 prompt 各要 3 个 block，decode 每一步正好写满一个 block。数字不是实测。
+steps:
+  - text: 开始时 8 个 block 都空着。A、B、C 依次到达，都在等待队列里。
+    blocks: [".", ".", ".", ".", ".", ".", ".", "."]
+    running: []
+    waiting: [A, B, C]
+  - text: A 进入运行队列。准入时按整段 prompt 估算要 3 个 block，空闲有 8 个，放得下。
+    blocks: [A1, A2, A3, ".", ".", ".", ".", "."]
+    running: [A]
+    waiting: [B, C]
+  - text: B 进入运行队列，同样要 3 个 block，空闲还有 5 个。
+    blocks: [A1, A2, A3, B1, B2, B3, ".", "."]
+    running: [A, B]
+    waiting: [C]
+  - text: C 要 3 个 block，只剩 2 个空闲。分块 prefill 的第一步其实用不了 3 个，但准入检查按整段 prompt 估算，C 整条留在等待队列里。
+    blocks: [A1, A2, A3, B1, B2, B3, ".", "."]
+    running: [A, B]
+    waiting: [C]
+  - text: A 和 B 开始 decode。A 写满了最后一个 block，再写下一个 token 要一个新 block，拿走一个空闲的。
+    blocks: [A1, A2, A3, B1, B2, B3, A4, "."]
+    running: [A, B]
+    waiting: [C]
+  - text: B 也要一个新 block，拿走最后一个空闲的。准入时没有估算输出要多少 block，现在一个空闲的都没有了。
+    blocks: [A1, A2, A3, B1, B2, B3, A4, B4]
+    running: [A, B]
+    waiting: [C]
+  - text: A 又要一个新 block，分不到。调度器抢占运行队列里最后进来的 B：B 的 4 个 block 全部收回，B 回到等待队列的最前面，已经生成的 token 保留。写满的 B1 到 B3 还挂着哈希；B4 没写满，没有哈希，放在空闲队列的队头，写满的按从后往前的顺序放到队尾。
+    blocks: [A1, A2, A3, "~B1", "~B2", "~B3", A4, "."]
+    running: [A]
+    waiting: [B, C]
+    free: [空, B3, B2, B1]
+  - text: A 从空闲队列的队头拿到原来 B4 的那个 block，接着 decode。
+    blocks: [A1, A2, A3, "~B1", "~B2", "~B3", A4, A5]
+    running: [A]
+    waiting: [B, C]
+    free: [B3, B2, B1]
+  - text: A 再要一个 block，队头是 B3。这个 block 分给 A，B3 的缓存就没了。B 的尾部先被拿走，开头的 B1、B2 还在。
+    blocks: [A1, A2, A3, "~B1", "~B2", A6, A4, A5]
+    running: [A]
+    waiting: [B, C]
+    free: [B2, B1]
+  - text: A 输出结束，6 个 block 回到空闲队列。写满的 A1 到 A5 也还挂着哈希，没写满的 A6 放在队头。
+    blocks: ["~A1", "~A2", "~A3", "~B1", "~B2", ".", "~A4", "~A5"]
+    running: []
+    waiting: [B, C]
+    free: [空, B2, B1, A5, A4, A3, A2, A1]
+  - text: B 从等待队列最前面恢复，重新查前缀缓存。B1、B2 命中，直接用；B3 和装着已生成 token 的 B4 要重算，这一步和普通的 prefill 一样，算完接着 decode。新的 2 个 block 从队头取，A5 的缓存被挤掉。
+    blocks: ["~A1", "~A2", "~A3", "B1:hit", "B2:hit", "B3:re", "~A4", "B4:re"]
+    running: [B]
+    waiting: [C]
+    free: [A4, A3, A2, A1]
+  - text: 空闲的 4 个 block 放得下 C 的整段 prompt，C 进入运行队列，用的是 A 留下的 block。
+    blocks: ["~A1", C3, C2, B1, B2, B3, C1, B4]
+    running: [B, C]
+    waiting: []
+    free: [A1]
