@@ -1,3 +1,14 @@
+/*
+ * 格子写成 "."、"A1"、"~A1"、"A1:hit"，"~" 表示空闲但还挂着哈希，":" 后是标记。
+ * 颜色默认取标签的第一个字母（A～E、P），也可以写 "7@A" 显式指定，S 灰紫、R 红、G 灰。
+ * 可选的 config：
+ *   grid_label: 格子上方的标题，{n} 换成格子数
+ *   index: true 时在格子左上角显示位置编号
+ *   legend: [{swatch: used|cached|empty, color: A, text: 说明}]
+ *   rows: [{key: running, name: 运行队列, optional: true}]，optional 的行在这一步没给数据时隐藏
+ *   marks: {lost: 丢失}，标记文字；没列出的标记原样显示
+ * 队列行的条目同样可以写 "7@A"；行数据写成字符串时原样显示。
+ */
 (() => {
   const el = (tag, cls, text) => {
     const n = document.createElement(tag);
@@ -6,38 +17,66 @@
     return n;
   };
 
+  const split = (s) => {
+    const at = s.lastIndexOf('@');
+    return at > 0 ? [s.slice(0, at), s.slice(at + 1)] : [s, ''];
+  };
+
   const parse = (s) => {
     if (s === '.') return { kind: 'empty', label: '' };
     const cached = s.startsWith('~');
-    const [label, mark] = (cached ? s.slice(1) : s).split(':');
-    return { kind: cached ? 'cached' : 'used', label, req: label[0], mark: mark || '' };
+    const body = cached ? s.slice(1) : s;
+    const colon = body.indexOf(':');
+    const [label, color] = split(colon < 0 ? body : body.slice(0, colon));
+    const mark = colon < 0 ? '' : body.slice(colon + 1);
+    return { kind: cached ? 'cached' : 'used', label, req: color || label[0], mark };
   };
 
   const chips = (box, items) => {
     box.textContent = '';
+    if (typeof items === 'string') { box.appendChild(el('span', 'kvd-val', items)); return; }
     if (!items || !items.length) { box.appendChild(el('span', 'kvd-none', '空')); return; }
-    items.forEach((name) => {
+    items.forEach((raw) => {
+      const [name, color] = split(String(raw));
       const c = el('span', 'kvd-chip', name);
-      if (name.length === 1) c.dataset.req = name;
+      if (color) c.dataset.req = color;
+      else if (name.length === 1) c.dataset.req = name;
       box.appendChild(c);
     });
   };
 
+  const defaultRows = [
+    { key: 'running', name: '运行队列' },
+    { key: 'waiting', name: '等待队列（左边是最前面）' },
+    { key: 'free', name: '空闲队列（从左边取）', optional: true },
+  ];
+  const defaultLegend = [
+    { swatch: 'used', text: '被请求占用' },
+    { swatch: 'cached', text: '空闲，还挂着哈希，可被命中' },
+    { swatch: 'empty', text: '空闲' },
+  ];
+
   function init(root) {
+    if (root.classList.contains('kvd-ready')) return;
     const src = root.querySelector('.kv-demo-data');
     if (!src) return;
     let steps;
+    let cfg = {};
     try { steps = JSON.parse(src.textContent); } catch (e) { return; }
     if (!steps.length) return;
+    const cfgSrc = root.querySelector('.kv-demo-config');
+    if (cfgSrc) { try { cfg = JSON.parse(cfgSrc.textContent) || {}; } catch (e) { cfg = {}; } }
+    const marks = Object.assign({ hit: '命中', re: '重算' }, cfg.marks || {});
     const n = steps[0].blocks.length;
 
     const stage = el('div', 'kvd-stage');
-    const gridLabel = el('div', 'kvd-label', `KV Cache（${n} 个 block）`);
+    const gridLabel = el('div', 'kvd-label', (cfg.grid_label || 'KV Cache（{n} 个 block）').replace('{n}', n));
     const grid = el('div', 'kvd-grid');
     grid.style.setProperty('--kvd-n', n);
     const cells = [];
     for (let i = 0; i < n; i++) {
       const c = el('div', 'kvd-cell');
+      if (cfg.index) c.appendChild(el('span', 'kvd-index', String(i)));
       c.appendChild(el('span', 'kvd-tag'));
       c.appendChild(el('span', 'kvd-mark'));
       grid.appendChild(c);
@@ -45,23 +84,22 @@
     }
 
     const queues = el('div', 'kvd-queues');
-    const row = (name) => {
+    const rows = (cfg.rows || defaultRows).map((spec) => {
       const r = el('div', 'kvd-row');
-      r.appendChild(el('span', 'kvd-row-name', name));
+      r.appendChild(el('span', 'kvd-row-name', spec.name));
       const box = el('span', 'kvd-row-items');
       r.appendChild(box);
       queues.appendChild(r);
-      return [r, box];
-    };
-    const [, runBox] = row('运行队列');
-    const [, waitBox] = row('等待队列（左边是最前面）');
-    const [freeRow, freeBox] = row('空闲队列（从左边取）');
+      return { spec, r, box };
+    });
 
     const legend = el('div', 'kvd-legend');
-    [['used', '被请求占用'], ['cached', '空闲，还挂着哈希，可被命中'], ['empty', '空闲']].forEach(([k, t]) => {
+    (cfg.legend || defaultLegend).forEach((item) => {
       const i = el('span', 'kvd-legend-item');
-      i.appendChild(el('span', `kvd-swatch kvd-${k}`));
-      i.appendChild(document.createTextNode(t));
+      const sw = el('span', `kvd-swatch kvd-${item.swatch || 'used'}`);
+      if (item.color) sw.dataset.req = item.color;
+      i.appendChild(sw);
+      i.appendChild(document.createTextNode(item.text));
       legend.appendChild(i);
     });
 
@@ -100,9 +138,9 @@
         c.className = `kvd-cell kvd-${b.kind}`;
         if (b.req) c.dataset.req = b.req; else delete c.dataset.req;
         c.querySelector('.kvd-tag').textContent = b.label;
-        const mark = b.mark === 'hit' ? '命中' : b.mark === 're' ? '重算' : '';
+        const mark = b.mark ? (marks[b.mark] != null ? marks[b.mark] : b.mark) : '';
         c.querySelector('.kvd-mark').textContent = mark;
-        if (b.mark) c.classList.add(`kvd-${b.mark}`);
+        if (b.mark === 'hit' || b.mark === 're') c.classList.add(`kvd-${b.mark}`);
         const changed = before && before[i] !== raw;
         if (changed && !reduce) {
           c.classList.remove('kvd-changed');
@@ -111,12 +149,17 @@
         } else if (changed) {
           c.classList.add('kvd-changed-static');
         }
-        const state = b.kind === 'empty' ? '空闲' : b.kind === 'cached' ? `空闲，可命中的 ${b.label}` : `${b.label}${mark ? '，' + mark : ''}`;
-        c.setAttribute('aria-label', `block ${i}：${state}`);
+        let state;
+        if (cfg.aria === 'label') state = `${b.label || '空'}${mark ? '，' + mark : ''}`;
+        else state = b.kind === 'empty' ? '空闲' : b.kind === 'cached' ? `空闲，可命中的 ${b.label}${mark ? '，' + mark : ''}` : `${b.label}${mark ? '，' + mark : ''}`;
+        c.setAttribute('aria-label', cfg.aria === 'label' ? state : `block ${i}：${state}`);
       });
-      chips(runBox, s.running);
-      chips(waitBox, s.waiting);
-      if (s.free) { freeRow.hidden = false; chips(freeBox, s.free); } else { freeRow.hidden = true; }
+      rows.forEach(({ spec, r, box }) => {
+        const v = s[spec.key];
+        if (spec.optional && v == null) { r.hidden = true; return; }
+        r.hidden = false;
+        chips(box, v);
+      });
       text.textContent = s.text;
       counter.textContent = `${idx + 1} / ${steps.length}`;
       prev.disabled = idx === 0;

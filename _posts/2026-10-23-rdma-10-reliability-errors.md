@@ -74,6 +74,12 @@ ACK 本身丢了也是同样的结果：A 等到超时后重发 LAST，B 收到�
 
 {% include figure.html src="/assets/images/rdma-10-reliability-errors/02-retransmit.jpg" alt="发送方和接收方两条时间线：发送方连续发出 PSN n、n+1、n+2 三个报文，n 在网络中丢失；接收方收到 n+1 时回 PSN 序列错误 NAK，PSN 为 n，之后的 n+2 被静默丢弃；发送方收到 NAK 后从 n 开始重传 n、n+1、n+2，接收方回 ACK。下方另一组时间线表示最后一个报文丢失时，接收方不回任何东西，发送方等 ACK 超时后重传" caption="图 2：go-back-N 重传：NAK 触发和超时触发" %}
 
+图 2 看得到报文的来回，看不到两端的状态在哪一刻变了。下面两个示意把 FIRST 丢了、LAST 丢了这两种情况按步骤走一遍，PSN 用 n、n+1 表示，可以按“下一步”一步步看；retry_cnt 怎么用掉见下一小节。
+
+{% include kv-demo.html id="rdma-first-lost" caption="图 3：FIRST 丢了时接收方和发送方的状态。虚线框是在网络里丢失的报文" %}
+
+{% include kv-demo.html id="rdma-last-lost" caption="图 4：LAST 丢了时接收方不回任何东西，靠发送方的超时重传" %}
+
 ### 重传的次数
 
 收到 PSN 序列错误 NAK 和 ACK 超时，消耗的是同一个计数 `retry_cnt`。每重传一轮减一，减到 0 后再需要重传时，这条 WR 以 `IBV_WC_RETRY_EXC_ERR` 完成，A 的 QP 进入 ERR。

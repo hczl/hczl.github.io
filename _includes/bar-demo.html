@@ -1,0 +1,21 @@
+{%- comment -%}
+按比例分段的横条分步演示。用法：
+{% include bar-demo.html id="startup-memory" caption="图注，可省略" %}
+步骤数据在 _data/kv_demo/<id>.yml，写法见 bar-demo.js 开头。外框、按钮和颜色来自 kv-demo.css。JS 不可用时显示文字版步骤。
+{%- endcomment -%}
+{%- assign demo = site.data.kv_demo[include.id] -%}
+<link rel="stylesheet" href="{{ '/assets/kv-demo.css' | relative_url }}">
+<link rel="stylesheet" href="{{ '/assets/bar-demo.css' | relative_url }}">
+<figure class="kv-demo bar-demo" id="bar-demo-{{ include.id }}">
+  <p class="kv-demo-title">{{ demo.title }}</p>
+  <ol class="kv-demo-fallback">
+    {%- for step in demo.steps %}
+    <li>{{ step.text }}</li>
+    {%- endfor %}
+  </ol>
+  <script type="application/json" class="bar-demo-data">{{ demo | jsonify }}</script>
+  {%- if include.caption %}
+  <figcaption>{{ include.caption | markdownify | remove: '<p>' | remove: '</p>' | strip }}</figcaption>
+  {%- endif %}
+</figure>
+<script src="{{ '/assets/bar-demo.js' | relative_url }}" defer></script>

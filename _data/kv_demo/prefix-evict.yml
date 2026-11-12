@@ -1,0 +1,47 @@
+# 第六篇空闲队列顺序的示意动画。数字是示意，不是实测。
+# 格子写法见 assets/kv-demo.js 开头。A 是会话 0 的请求，B 是会话 1 的请求，
+# P 是两个会话共用的 system prompt 所在的 block。free 是空闲队列从队头到队尾的顺序。
+title: 示意：KV Cache 只有 6 个 block，system prompt 占 1 个（P），会话 0 和会话 1 轮流发请求。数字不是实测，实测见下文。
+config:
+  legend:
+    - {swatch: used, color: A, text: 会话 0 的请求}
+    - {swatch: used, color: B, text: 会话 1 的请求}
+    - {swatch: used, color: P, text: 两个会话共用的 system prompt}
+    - {swatch: cached, color: A, text: 空闲，还挂着哈希，可被命中}
+    - {swatch: empty, text: 空闲}
+  rows:
+    - {key: running, name: 运行队列}
+    - {key: free, name: 空闲队列（从左边取）}
+steps:
+  - text: 会话 0 的一轮请求在运行，占着 4 个 block：P 是 system prompt，A1、A2 写满了，A3 还没写满。另外 2 个 block 空着。
+    blocks: [P, A1, A2, A3, ".", "."]
+    running: [A]
+    free: [空, 空]
+  - text: 这一轮结束，4 个 block 回到空闲队列。A3 没写满，没有哈希，放到队头；写满的按请求里从后往前的顺序放到队尾：A2、A1、P。P 离队头最远。
+    blocks: ["~P", "~A1", "~A2", ".", ".", "."]
+    running: []
+    free: [空, 空, 空, A2@A, A1@A, P]
+  - text: 会话 1 的请求到达，开头是同一段 system prompt，命中 P。P 从空闲队列里取出来，引用计数加一，不必排到队头才被用到。
+    blocks: ["P:hit", "~A1", "~A2", ".", ".", "."]
+    running: [B]
+    free: [空, 空, 空, A2@A, A1@A]
+  - text: 会话 1 自己的内容要 4 个新 block，从队头取：先是 3 个没有哈希的，再是 A2。A2 的哈希从缓存表里删掉，它的缓存失效了。会话 0 留下的 block 是尾部先没的。
+    blocks: [P, "~A1", B4, B1, B2, B3]
+    running: [B]
+    free: [A1@A]
+  - text: 会话 1 这一轮结束。B4 没写满，放到队头；B3、B2、B1、P 按从后往前放到队尾。P 刚被用过，又排到了最后。
+    blocks: ["~P", "~A1", ".", "~B1", "~B2", "~B3"]
+    running: []
+    free: [空, A1@A, B3@B, B2@B, B1@B, P]
+  - text: 会话 0 的下一轮到达，从第 0 个 block 往后查：P 命中，A1 命中，A2 已经失效，查到这里就停。命中的是开头一段。
+    blocks: ["P:hit", "A1:hit", ".", "~B1", "~B2", "~B3"]
+    running: [A]
+    free: [空, B3@B, B2@B, B1@B]
+  - text: A2 要重算；A3 上一轮没写满、本来就不在缓存里，也要重算；A4 是这一轮的新内容。3 个 block 从队头取：空的那个，然后是 B3、B2。会话 1 留下的 block 同样是尾部先被挤掉，开头的 B1 还在。
+    blocks: ["P:hit", "A1:hit", "A2:re", "~B1", A4, "A3:re"]
+    running: [A]
+    free: [B1@B]
+  - text: 对照下文的实测：4 个会话时，会话 0 第 6 轮上一轮留下 976 个满 block，只命中了开头的 298 个；每条请求都至少命中 system prompt 的 17 个 block，因为它们总是刚被用过、排在队尾；整个实验应有 77.2% 的命中率，实际是 51.0%。
+    blocks: ["P:hit", "A1:hit", "A2:re", "~B1", A4, "A3:re"]
+    running: [A]
+    free: [B1@B]

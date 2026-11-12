@@ -1,7 +1,7 @@
 {%- comment -%}
 KV block 分步演示。用法：
 {% include kv-demo.html id="preempt" caption="图注，可省略" %}
-步骤数据在 _data/kv_demo/<id>.yml。JS 不可用时显示文字版步骤。
+步骤数据在 _data/kv_demo/<id>.yml。可选的 config 改格子标题、图例、队列行和标记文字，写法见 kv-demo.js 开头。JS 不可用时显示文字版步骤。
 {%- endcomment -%}
 {%- assign demo = site.data.kv_demo[include.id] -%}
 <link rel="stylesheet" href="{{ '/assets/kv-demo.css' | relative_url }}">
@@ -13,6 +13,9 @@ KV block 分步演示。用法：
     {%- endfor %}
   </ol>
   <script type="application/json" class="kv-demo-data">{{ demo.steps | jsonify }}</script>
+  {%- if demo.config %}
+  <script type="application/json" class="kv-demo-config">{{ demo.config | jsonify }}</script>
+  {%- endif %}
   {%- if include.caption %}
   <figcaption>{{ include.caption | markdownify | remove: '<p>' | remove: '</p>' | strip }}</figcaption>
   {%- endif %}

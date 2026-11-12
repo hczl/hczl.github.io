@@ -1,5 +1,5 @@
-.kv-demo{margin:28px 0;padding:20px 22px 18px;border:1px solid var(--line);border-radius:8px;background:var(--soft);--kvd-a:#e6edff;--kvd-a-line:#8fa9ee;--kvd-a-ink:#2453db;--kvd-b:#fff0d9;--kvd-b-line:#e2ae5c;--kvd-b-ink:#9a5b00;--kvd-c:#e2f3e8;--kvd-c-line:#86c49c;--kvd-c-ink:#20683c}
-:root[data-theme=dark] .kv-demo{--kvd-a:#1f2a48;--kvd-a-line:#4a62a8;--kvd-a-ink:#9db6ff;--kvd-b:#3a2c17;--kvd-b-line:#8a6630;--kvd-b-ink:#f0c27a;--kvd-c:#1a3326;--kvd-c-line:#3f7a55;--kvd-c-ink:#93d4aa}
+.kv-demo{margin:28px 0;padding:20px 22px 18px;border:1px solid var(--line);border-radius:8px;background:var(--soft);--kvd-a:#e6edff;--kvd-a-line:#8fa9ee;--kvd-a-ink:#2453db;--kvd-b:#fff0d9;--kvd-b-line:#e2ae5c;--kvd-b-ink:#9a5b00;--kvd-c:#e2f3e8;--kvd-c-line:#86c49c;--kvd-c-ink:#20683c;--kvd-d:#f3e6f7;--kvd-d-line:#c08bd3;--kvd-d-ink:#7a2d94;--kvd-e:#dff3f4;--kvd-e-line:#6fbcc2;--kvd-e-ink:#1d6970;--kvd-s:#ebe8f5;--kvd-s-line:#9a8fc4;--kvd-s-ink:#4b3f87;--kvd-r:#fde4e1;--kvd-r-line:#e08a80;--kvd-r-ink:#b42318;--kvd-g:#eceeef;--kvd-g-line:#aab0b7;--kvd-g-ink:#5d6670}
+:root[data-theme=dark] .kv-demo{--kvd-a:#1f2a48;--kvd-a-line:#4a62a8;--kvd-a-ink:#9db6ff;--kvd-b:#3a2c17;--kvd-b-line:#8a6630;--kvd-b-ink:#f0c27a;--kvd-c:#1a3326;--kvd-c-line:#3f7a55;--kvd-c-ink:#93d4aa;--kvd-d:#33203b;--kvd-d-line:#7d4f8f;--kvd-d-ink:#dcaaf0;--kvd-e:#173236;--kvd-e-line:#3f7f85;--kvd-e-ink:#8fd6dc;--kvd-s:#2a2740;--kvd-s-line:#6a609c;--kvd-s-ink:#c2b8f2;--kvd-r:#3d1d1a;--kvd-r-line:#9a4a40;--kvd-r-ink:#ffaaa0;--kvd-g:#262a31;--kvd-g-line:#59616c;--kvd-g-ink:#b4bcc7}
 .kv-demo .kv-demo-title{margin:0 0 14px;font-size:13px;line-height:1.7;color:var(--muted)}
 .kv-demo .kv-demo-fallback{margin:0;font-size:14px;line-height:1.8}
 .kv-demo .kv-demo-fallback[hidden]{display:none}
@@ -44,5 +44,22 @@
 .kvd-primary:hover:not(:disabled){color:#fff;filter:brightness(1.1)}
 :root[data-theme=dark] .kvd-primary{background:#2f5ad8;border-color:#2f5ad8}
 .kvd-counter{font:12px var(--mono);color:var(--muted);min-width:3.6em;text-align:center}
+.kvd-used[data-req=D],.kvd-chip[data-req=D],.kvd-swatch.kvd-used[data-req=D]{background:var(--kvd-d);border-color:var(--kvd-d-line);color:var(--kvd-d-ink)}
+.kvd-cached[data-req=D],.kvd-swatch.kvd-cached[data-req=D]{border-color:var(--kvd-d-line);color:var(--kvd-d-ink)}
+.kvd-used[data-req=E],.kvd-chip[data-req=E],.kvd-swatch.kvd-used[data-req=E]{background:var(--kvd-e);border-color:var(--kvd-e-line);color:var(--kvd-e-ink)}
+.kvd-cached[data-req=E],.kvd-swatch.kvd-cached[data-req=E]{border-color:var(--kvd-e-line);color:var(--kvd-e-ink)}
+.kvd-used[data-req=P],.kvd-chip[data-req=P],.kvd-swatch.kvd-used[data-req=P]{background:var(--kvd-s);border-color:var(--kvd-s-line);color:var(--kvd-s-ink)}
+.kvd-cached[data-req=P],.kvd-swatch.kvd-cached[data-req=P]{border-color:var(--kvd-s-line);color:var(--kvd-s-ink)}
+.kvd-used[data-req=S],.kvd-chip[data-req=S],.kvd-swatch.kvd-used[data-req=S]{background:var(--kvd-s);border-color:var(--kvd-s-line);color:var(--kvd-s-ink)}
+.kvd-cached[data-req=S],.kvd-swatch.kvd-cached[data-req=S]{border-color:var(--kvd-s-line);color:var(--kvd-s-ink)}
+.kvd-used[data-req=R],.kvd-chip[data-req=R],.kvd-swatch.kvd-used[data-req=R]{background:var(--kvd-r);border-color:var(--kvd-r-line);color:var(--kvd-r-ink)}
+.kvd-cached[data-req=R],.kvd-swatch.kvd-cached[data-req=R]{border-color:var(--kvd-r-line);color:var(--kvd-r-ink)}
+.kvd-used[data-req=G],.kvd-chip[data-req=G],.kvd-swatch.kvd-used[data-req=G]{background:var(--kvd-g);border-color:var(--kvd-g-line);color:var(--kvd-g-ink)}
+.kvd-cached[data-req=G],.kvd-swatch.kvd-cached[data-req=G]{border-color:var(--kvd-g-line);color:var(--kvd-g-ink)}
+.kvd-swatch.kvd-used[data-req=B]{background:var(--kvd-b);border-color:var(--kvd-b-line)}.kvd-swatch.kvd-cached[data-req=B]{border-color:var(--kvd-b-line)}
+.kvd-swatch.kvd-used[data-req=C]{background:var(--kvd-c);border-color:var(--kvd-c-line)}.kvd-swatch.kvd-cached[data-req=C]{border-color:var(--kvd-c-line)}
+.kvd-swatch.kvd-empty{border-color:var(--line)}
+.kvd-index{position:absolute;top:3px;left:5px;font:500 10px var(--mono);color:var(--muted);opacity:.8}
+.kvd-val{font-size:13px;color:var(--ink)}
 @media(max-width:560px){.kv-demo{padding:16px 14px 14px}.kvd-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.kvd-row{flex-direction:column;align-items:flex-start;gap:3px}.kvd-row-name{flex:none;font-size:12px}.kvd-text{min-height:8em}}
 @media(prefers-reduced-motion:reduce){.kvd-cell{transition:none}}

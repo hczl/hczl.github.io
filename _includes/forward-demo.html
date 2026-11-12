@@ -1,0 +1,21 @@
+{%- comment -%}
+一步前向的分步演示。用法：
+{% include forward-demo.html id="forward" caption="图注，可省略" %}
+步骤数据在 _data/kv_demo/<id>.yml。外框和按钮样式来自 kv-demo.css。JS 不可用时显示文字版步骤。
+{%- endcomment -%}
+{%- assign demo = site.data.kv_demo[include.id] -%}
+<link rel="stylesheet" href="{{ '/assets/kv-demo.css' | relative_url }}">
+<link rel="stylesheet" href="{{ '/assets/forward-demo.css' | relative_url }}">
+<figure class="kv-demo fwd-demo" id="fwd-demo-{{ include.id }}">
+  <p class="kv-demo-title">{{ demo.title }}</p>
+  <ol class="kv-demo-fallback">
+    {%- for step in demo.steps %}
+    <li>{{ step.text }}</li>
+    {%- endfor %}
+  </ol>
+  <script type="application/json" class="fwd-demo-data">{{ demo | jsonify }}</script>
+  {%- if include.caption %}
+  <figcaption>{{ include.caption | markdownify | remove: '<p>' | remove: '</p>' | strip }}</figcaption>
+  {%- endif %}
+</figure>
+<script src="{{ '/assets/forward-demo.js' | relative_url }}" defer></script>

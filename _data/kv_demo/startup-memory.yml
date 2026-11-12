@@ -1,0 +1,54 @@
+# 第二篇第三步到第九步的显存划分，第 1 次（冷）和第 3 次（热）对照。数字都是实测，出自正文的日志和表格。
+# 写法见 assets/bar-demo.js 开头。
+title: 第 1 次（冷启动）和第 3 次（热启动）的显存，按第三步到第九步的顺序一项项分出去。整根条是整张卡的 23.52 GiB，数字都来自上文的日志和表格，单位 GiB。
+config:
+  scale: 23.52
+  digits: 2
+  unit: GiB
+  min_pct: 0.6
+  axis: ["0", "整卡 23.52 GiB"]
+  rest_label: 还没分出去
+  outside_label: 比例之外
+  bars:
+    - {key: cold, name: 第 1 次（冷启动，0.9）}
+    - {key: hot, name: 第 3 次（热启动，0.9）}
+  legend:
+    - {color: A, text: 权重}
+    - {color: S, text: 其他（CUDA 上下文和各种库的工作区）}
+    - {color: B, text: PyTorch 峰值增量}
+    - {color: D, text: CUDA Graph}
+    - {color: C, text: KV Cache}
+    - {color: G, style: hatch, text: 不在 --gpu-memory-utilization 的比例里}
+steps:
+  - text: 第三步：--gpu-memory-utilization 0.9 按整卡算是 21.16 GiB，引擎后面所有的显存都从这里出。红色虚线右边是 4.5 GiB，一条 32768 token 的请求要这么多 KV Cache，前面各项分完以后，剩下的部分要能盖过这条线。
+    bars:
+      cold: {cap: 21.16, segs: [], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+      hot: {cap: 21.16, segs: [], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+  - text: 第四步：加载权重，两次都是 15.27 GiB。
+    bars:
+      cold: {cap: 21.16, segs: [[权重, 15.27, A]], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+      hot: {cap: 21.16, segs: [[权重, 15.27, A]], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+  - text: 第六步：测显存时实际用掉的是 15.54 GiB，除了权重，另外 0.27 GiB 不归 PyTorch 管。到这里两次完全一样。
+    bars:
+      cold: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S]], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+      hot: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S]], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+  - text: 第六步：用假数据跑一次前向，记下 PyTorch 显存峰值的增量。热启动是 0.2 GiB；冷启动没有编译缓存，35 秒的编译正好在这次前向里触发，编译时临时占用的显存也被记进峰值，变成 1.19 GiB。差别从这里开始。
+    bars:
+      cold: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 1.19, B]], mark: [16.66, KV Cache 至少要 4.5 GiB], note: 测显存用了 37.42 s，其中 35 s 是编译}
+      hot: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 0.2, B]], mark: [16.66, KV Cache 至少要 4.5 GiB], note: 测显存用了 1.98 s}
+  - text: 第六步：CUDA Graph 先捕获一遍，估计要 0.43 GiB，也从预算里扣掉（这个数在第九步那行日志里）。冷启动的非 KV 显存是 16.72 GiB，热启动是 15.72 GiB；日志里各项都四舍五入到 0.01 GiB，加起来会差一两个 0.01。
+    bars:
+      cold: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 1.19, B], [CUDA Graph 估计, 0.43, D]], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+      hot: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 0.2, B], [CUDA Graph 估计, 0.43, D]], mark: [16.66, KV Cache 至少要 4.5 GiB]}
+  - text: 第七步：剩下的给 KV Cache。热启动 21.16 − 15.72 − 0.43 = 5.01 GiB，盖过了虚线，启动继续。冷启动只剩 4.01 GiB，没到虚线，引擎报错退出；编译结果在报错之前已经存进缓存，所以原样再启动一次就能成功。
+    bars:
+      cold: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 1.19, B], [CUDA Graph 估计, 0.43, D], [KV Cache, 4.01, C]], mark: [16.66, KV Cache 至少要 4.5 GiB], note: 4.01 < 4.5，报错退出, bad: true}
+      hot: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 0.2, B], [CUDA Graph 估计, 0.43, D], [KV Cache, 5.01, C]], mark: [16.66, KV Cache 至少要 4.5 GiB], note: 5.01 ≥ 4.5，启动继续}
+  - text: 第九步：热启动正式捕获 CUDA Graph，实际只用了 0.23 GiB。估计值早已从 KV Cache 的预算里扣掉，多扣的 0.2 GiB 就空着。冷启动那次没有走到这一步。
+    bars:
+      cold: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 1.19, B], [CUDA Graph 估计, 0.43, D], [KV Cache, 4.01, C]], mark: [16.66, KV Cache 至少要 4.5 GiB], note: 已在第七步退出, bad: true, dim: true}
+      hot: {cap: 21.16, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 0.2, B], [CUDA Graph 实际, 0.23, D], [多扣、空着, 0.2, D, hatch], [KV Cache, 5.01, C]], mark: [16.66, KV Cache 至少要 4.5 GiB], note: 5.01 ≥ 4.5，启动继续}
+  - text: 换成默认的 0.92，按整卡算是 21.64 GiB。第 5 次冷启动的 KV Cache 是 4.48 GiB，比 4.5 GiB 只差 0.02，同样报错退出，就是上一篇第一次启动的情况；热启动是 5.48 GiB。
+    bars:
+      cold: {name: 第 5 次（冷启动，0.92）, cap: 21.64, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量, 1.19, B], [CUDA Graph 估计, 0.43, D], [KV Cache, 4.48, C]], mark: [17.14, KV Cache 至少要 4.5 GiB], note: 4.48 < 4.5，报错退出, bad: true}
+      hot: {name: 热启动，0.92（上一篇那次）, cap: 21.64, segs: [[权重, 15.27, A], [其他, 0.27, S], [峰值增量（约）, 0.2, B], [CUDA Graph 估计, 0.43, D], [KV Cache, 5.48, C]], mark: [17.14, KV Cache 至少要 4.5 GiB], note: 5.48 ≥ 4.5，启动成功}

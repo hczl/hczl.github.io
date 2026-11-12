@@ -1,0 +1,58 @@
+# RDMA 第十篇“FIRST 丢了”的示意动画。PSN 用 n、n+1……表示，retry_cnt 不给具体值。
+# 格子写法见 assets/kv-demo.js 开头，一格是一个请求报文。
+title: 示意：A 发出 PSN 为 n 到 n+3 的 4 个请求报文，n 和 n+1 是 8 KB WRITE 的 FIRST 和 LAST，n+2、n+3 是后面的 WR。FIRST 在网络里丢了。
+config:
+  grid_label: A 发出的请求报文（PSN）
+  aria: label
+  marks: {fly: 在途, lost: 丢失, drop: 静默丢弃, nak: 回 NAK, resend: 重发, ok: 已写入, ack: 已确认}
+  legend:
+    - {swatch: used, color: A, text: 在途}
+    - {swatch: cached, color: R, text: 在网络里丢失}
+    - {swatch: used, color: G, text: 被 B 丢弃}
+    - {swatch: used, color: C, text: B 已写入内存}
+  rows:
+    - {key: recv, name: B 期望的 PSN}
+    - {key: nak, name: B 已回过 NAK}
+    - {key: wire, name: B 回给 A 的报文, optional: true}
+    - {key: send, name: A 下一个要发的 PSN}
+    - {key: retry, name: A 的 retry_cnt}
+steps:
+  - text: A 依次发出 PSN 为 n 到 n+3 的 4 个报文。B 期望收到的是 n。
+    blocks: ["n@A:fly", "n+1@A:fly", "n+2@A:fly", "n+3@A:fly"]
+    recv: [n]
+    nak: 否
+    send: [n+4]
+    retry: RTS 时设的值
+  - text: FIRST（n）在网络里丢了。LAST（n+1）先到 B，PSN 比期望值大，B 丢弃它，回一个 PSN 序列错误 NAK，NAK 里的 PSN 填 B 期望的 n，并记下已经回过 NAK。
+    blocks: ["~n@R:lost", "n+1@G:nak", "n+2@A:fly", "n+3@A:fly"]
+    recv: [n]
+    nak: 是
+    wire: [NAK，PSN = n@R]
+    send: [n+4]
+    retry: RTS 时设的值
+  - text: n+2、n+3 也到了 B。PSN 不等于 n，而 B 已经回过 NAK，这两个报文被静默丢弃，不再回 NAK。B 不缓存乱序到达的报文。
+    blocks: ["~n@R:lost", "n+1@G:nak", "n+2@G:drop", "n+3@G:drop"]
+    recv: [n]
+    nak: 是
+    wire: [NAK，PSN = n@R]
+    send: [n+4]
+    retry: RTS 时设的值
+  - text: A 收到 NAK。NAK 的 PSN 之前的报文视为已经确认，这里没有。A 把发送位置拉回 n，retry_cnt 减一，从 n 开始把 4 个报文全部重发，这就是 go-back-N。
+    blocks: ["n@A:resend", "n+1@A:resend", "n+2@A:resend", "n+3@A:resend"]
+    recv: [n]
+    nak: 是
+    send: [n]
+    retry: 减一
+  - text: B 收到 PSN 为 n 的 FIRST，正是期望值，写入内存，回过 NAK 的标记清掉；之后 n+1 到 n+3 按顺序到达，都写入内存。B 回 ACK。
+    blocks: ["n@C:ok", "n+1@C:ok", "n+2@C:ok", "n+3@C:ok"]
+    recv: [n+4]
+    nak: 否
+    wire: [ACK@C]
+    send: [n+4]
+    retry: 减一
+  - text: A 收到 ACK，4 个报文都确认了。这个 ACK 推进了确认位置，retry_cnt 恢复成 RTS 时设的值。丢一个报文的代价是一个往返时间，加上后面所有在途报文的重传；如果那个 NAK 也丢了，就要等一个完整的超时周期。
+    blocks: ["n@C:ack", "n+1@C:ack", "n+2@C:ack", "n+3@C:ack"]
+    recv: [n+4]
+    nak: 否
+    send: [n+4]
+    retry: 恢复成 RTS 时设的值

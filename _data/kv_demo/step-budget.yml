@@ -1,0 +1,76 @@
+# 第四篇第一步到第五步，每一步 2048 个 token 的预算怎么分。token 数都是实测，出自正文的逐步日志和表格。
+# 写法见 assets/bar-demo.js 开头。
+title: 会话 0～3 的请求在第 33～105 步怎样分一步 2048 个 token 的预算，token 数都来自上文的逐步日志。decode 和很短的 prefill 画宽了，不按比例。
+config:
+  scale: 2048
+  digits: 0
+  min_pct: 3
+  axis: ["0", "一步的预算 2048 token"]
+  rest_label: 没用上
+  bars:
+    - {key: step, name: 第 33 步}
+  legend:
+    - {color: A, text: 会话 0}
+    - {color: B, text: 会话 1}
+    - {color: C, text: 会话 2}
+    - {color: G, style: hatch, text: 斜线是 decode，每个请求 1 个 token}
+  rows:
+    - {key: running, name: 这一步在算的请求}
+    - {key: progress, name: prefill 进度, optional: true}
+steps:
+  - text: 第 33 步：会话 0 的第 2 轮要算 6,931 个 token，超过一步的预算。引擎里没有别的请求，2048 个 token 全给它。
+    bars:
+      step: {name: 第 33 步, segs: [[会话 0 第 2 轮 prefill, 2048, A]]}
+    running: [会话 0 第 2 轮@A]
+    progress: ["会话 0 第 2 轮 2,048 / 6,931@A"]
+  - text: 第 34 步：同样 2048 个。
+    bars:
+      step: {name: 第 34 步, segs: [[会话 0 第 2 轮 prefill, 2048, A]]}
+    running: [会话 0 第 2 轮@A]
+    progress: ["会话 0 第 2 轮 4,096 / 6,931@A"]
+  - text: 第 35 步：还是 2048 个。会话 0 只剩 787 个 token。
+    bars:
+      step: {name: 第 35 步, segs: [[会话 0 第 2 轮 prefill, 2048, A]]}
+    running: [会话 0 第 2 轮@A]
+    progress: ["会话 0 第 2 轮 6,144 / 6,931@A"]
+  - text: 第 36 步：会话 1 的第 1 轮到了，要算 35 个 token。会话 0 的 prefill 先开始，先满足它的 787 个；剩下的 1,261 个足够放下会话 1 的 35 个。这一步合 822 个，两条请求都算完了 prefill，各自出了第一个 token。
+    bars:
+      step: {name: 第 36 步, segs: [[会话 0 第 2 轮 prefill, 787, A], [会话 1 第 1 轮 prefill, 35, B]]}
+    running: [会话 0 第 2 轮@A, 会话 1 第 1 轮@B]
+    progress: ["会话 0 第 2 轮 6,931 / 6,931@A", "会话 1 第 1 轮 35 / 35@B"]
+  - text: 第 37～92 步：只有 decode，每个请求每步 1 个 token，预算几乎都空着。会话 1 输出 29 个 token 后先结束，之后只剩会话 0。
+    bars:
+      step: {name: 第 37～92 步, segs: [[会话 0 decode, 1, A, hatch], [会话 1 decode, 1, B, hatch]]}
+    running: [会话 0 第 2 轮@A, 会话 1 第 1 轮@B]
+  - text: 第 93 步，会话 2 的第 1 轮到达，算完 35 个 token 后开始 decode。紧接着会话 1 的第 2 轮到了，要算 4,521 个 token。第 94 步先给在 decode 的会话 2 1 个 token，剩下的 2047 个才给 prefill。
+    bars:
+      step: {name: 第 94 步, segs: [[会话 2 decode, 1, C, hatch], [会话 1 第 2 轮 prefill, 2047, B]]}
+    running: [会话 2 第 1 轮@C, 会话 1 第 2 轮@B]
+    progress: ["会话 1 第 2 轮 2,047 / 4,521@B"]
+  - text: 第 95 步：同样是 1 个 decode 加 2047 个 prefill，预算用满。
+    bars:
+      step: {name: 第 95 步, segs: [[会话 2 decode, 1, C, hatch], [会话 1 第 2 轮 prefill, 2047, B]]}
+    running: [会话 2 第 1 轮@C, 会话 1 第 2 轮@B]
+    progress: ["会话 1 第 2 轮 4,094 / 4,521@B"]
+  - text: 第 96 步：剩下 427 个，2047 + 2047 + 427 正好是 4,521。
+    bars:
+      step: {name: 第 96 步, segs: [[会话 2 decode, 1, C, hatch], [会话 1 第 2 轮 prefill, 427, B]]}
+    running: [会话 2 第 1 轮@C, 会话 1 第 2 轮@B]
+    progress: ["会话 1 第 2 轮 4,521 / 4,521@B"]
+  - text: 第 101 步：会话 0 的第 3 轮到达，命中缓存 7,200 个，要算 8,232 个。会话 1 和会话 2 都在 decode，各先拿 1 个，prefill 只剩 2046 个。
+    bars:
+      step: {name: 第 101 步, segs: [[会话 1 decode, 1, B, hatch], [会话 2 decode, 1, C, hatch], [会话 0 第 3 轮 prefill, 2046, A]]}
+    running: [会话 1 第 2 轮@B, 会话 2 第 1 轮@C, 会话 0 第 3 轮@A]
+    progress: ["会话 0 第 3 轮 2,046 / 8,232@A"]
+  - text: 第 102～104 步：每步都是 2 个 decode 加 2046 个 prefill。两个 decode 请求每步只前进 1 个 token，每出一个 token 都要等这样一整步 prefill 算完。
+    bars:
+      step: {name: 第 102～104 步, segs: [[会话 1 decode, 1, B, hatch], [会话 2 decode, 1, C, hatch], [会话 0 第 3 轮 prefill, 2046, A]]}
+    running: [会话 1 第 2 轮@B, 会话 2 第 1 轮@C, 会话 0 第 3 轮@A]
+    progress: ["会话 0 第 3 轮 8,184 / 8,232@A"]
+  - text: 第 105 步：剩下 48 个，4 次 2046 加 48 是 8,232。
+    bars:
+      step: {name: 第 105 步, segs: [[会话 1 decode, 1, B, hatch], [会话 2 decode, 1, C, hatch], [会话 0 第 3 轮 prefill, 48, A]]}
+    running: [会话 1 第 2 轮@B, 会话 2 第 1 轮@C, 会话 0 第 3 轮@A]
+    progress: ["会话 0 第 3 轮 8,232 / 8,232@A"]
+  - text: 会话 2 的第 1 轮正好赶上第 94～96 步和第 101～105 步两段 prefill，输出 34 个 token 用了 2.24 秒；会话 3 的第 1 轮几秒后在第 119 步到达，没有碰上长 prefill，输出 33 个 token 只用了 0.74 秒。两条请求的 prompt 几乎一样。
+    running: [会话 1 第 2 轮@B, 会话 2 第 1 轮@C, 会话 0 第 3 轮@A]

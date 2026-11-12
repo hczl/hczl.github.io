@@ -1,0 +1,84 @@
+# 第八篇的一步前向示意。模型只有 2 层，数字是示意，不是实测。
+# stage 是当前高亮的阶段（stages 的下标，可多个）。
+# tokens 是这一步喂进模型的 token，active 为 false 的只显示不参与当前阶段。
+# kv 每层一行，"." 空，"t0" 已有，"t0:w" 本阶段写入，"t0:r" 本阶段被读。
+# weights 是这一步到目前为止读过几份权重，共 weights_total 份。
+title: 示意：一个只有 2 层的模型，prompt 是 t0 到 t3 四个 token。先做 prefill 一步，再做一步 decode。数字不是实测。
+stages: [输入准备, embedding, 第 1 层 attention, 第 1 层 MLP, 第 2 层 attention, 第 2 层 MLP, lm_head, 采样]
+kv_layers: [第 1 层, 第 2 层]
+weights_total: 5
+steps:
+  - kind: prefill
+    stage: [0]
+    tokens: [t0, t1, t2, t3]
+    kv: [[".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", "."]]
+    weights: 0
+    text: prefill 这一步要算 prompt 的 4 个 token。先在 GPU 上准备输入：4 个 token 的编号，它们的位置 0 到 3，以及每个 token 的 K、V 要写进 KV Cache 的哪个位置。
+  - kind: prefill
+    stage: [1]
+    tokens: [t0, t1, t2, t3]
+    kv: [[".", ".", ".", ".", ".", "."], [".", ".", ".", ".", ".", "."]]
+    weights: 0
+    text: embedding：按 token 编号在词表里查出 4 个向量。只读用到的那 4 行，不读整张表。
+  - kind: prefill
+    stage: [2]
+    tokens: [t0, t1, t2, t3]
+    kv: [["t0:w", "t1:w", "t2:w", "t3:w", ".", "."], [".", ".", ".", ".", ".", "."]]
+    weights: 1
+    text: 第 1 层 attention：读这一层 attention 的权重，4 个 token 一起乘，得到每个 token 的 Q、K、V。先把 4 个 token 的 K、V 写进 KV Cache，再让每个 token 和它自己及前面的 token 算 attention。
+  - kind: prefill
+    stage: [3]
+    tokens: [t0, t1, t2, t3]
+    kv: [[t0, t1, t2, t3, ".", "."], [".", ".", ".", ".", ".", "."]]
+    weights: 2
+    text: 第 1 层 MLP：读这一层 MLP 的权重，4 个 token 一起算。MLP 的权重比 attention 多得多。
+  - kind: prefill
+    stage: [4, 5]
+    tokens: [t0, t1, t2, t3]
+    kv: [[t0, t1, t2, t3, ".", "."], ["t0:w", "t1:w", "t2:w", "t3:w", ".", "."]]
+    weights: 4
+    text: 第 2 层重复同样的过程，又读了这一层的 attention 和 MLP 权重，4 个 token 的 K、V 写进第 2 层的 KV Cache。
+  - kind: prefill
+    stage: [6]
+    tokens: [t3]
+    kv: [[t0, t1, t2, t3, ".", "."], [t0, t1, t2, t3, ".", "."]]
+    weights: 5
+    text: lm_head：只取最后一个位置 t3 的结果，乘上 lm_head 的权重，得到词表里每个词的分数。前 3 个位置不需要预测下一个词，不算。
+  - kind: prefill
+    stage: [7]
+    tokens: [t3]
+    out: t4
+    kv: [[t0, t1, t2, t3, ".", "."], [t0, t1, t2, t3, ".", "."]]
+    weights: 5
+    text: 采样选出下一个 token t4。prefill 这一步把 5 份权重都读了一遍，算了 4 个 token。
+  - kind: decode
+    stage: [0]
+    tokens: [t4]
+    kv: [[t0, t1, t2, t3, ".", "."], [t0, t1, t2, t3, ".", "."]]
+    weights: 0
+    text: 下一步是 decode，只喂刚采样出的 t4 一个 token，位置是 4。
+  - kind: decode
+    stage: [2]
+    tokens: [t4]
+    kv: [["t0:r", "t1:r", "t2:r", "t3:r", "t4:w", "."], [t0, t1, t2, t3, ".", "."]]
+    weights: 1
+    text: 第 1 层 attention：权重还是整层读一遍，这次只乘 1 个 token。t4 的 K、V 写进位置 4，再读出位置 0 到 4 的 K、V 算 attention，前面 4 个 token 的 K、V 不用重算。
+  - kind: decode
+    stage: [3]
+    tokens: [t4]
+    kv: [[t0, t1, t2, t3, t4, "."], [t0, t1, t2, t3, ".", "."]]
+    weights: 2
+    text: 第 1 层 MLP：同样读整层 MLP 权重，只算 1 个 token。
+  - kind: decode
+    stage: [4, 5]
+    tokens: [t4]
+    kv: [[t0, t1, t2, t3, t4, "."], ["t0:r", "t1:r", "t2:r", "t3:r", "t4:w", "."]]
+    weights: 4
+    text: 第 2 层也一样：读整层权重，写 t4 的 K、V，读位置 0 到 4。
+  - kind: decode
+    stage: [6, 7]
+    tokens: [t4]
+    out: t5
+    kv: [[t0, t1, t2, t3, t4, "."], [t0, t1, t2, t3, t4, "."]]
+    weights: 5
+    text: lm_head 和采样，得到 t5。decode 这一步也把 5 份权重全读了一遍，却只算了 1 个 token。真实模型每一步读权重的时间差不多是固定的，prefill 把它分摊到很多 token 上，decode 只分给一个。

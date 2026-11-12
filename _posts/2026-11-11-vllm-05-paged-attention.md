@@ -93,6 +93,10 @@ block table 只记编号，所以几条请求的表里可以出现同一个物�
 
 共享的只有写满 16 个 token 的 block：请求的 KV 登记进前缀缓存时只登记整块，没写满的最后一块不登记，别的请求也就命中不了它。新 token 总是写进新分配给这条请求自己的 block，共享的 block 不会被改写，所以这套配置下用不到论文里的写时复制。
 
+把第一步到第六步和共用 block 放到一个缩小的例子里，可以按“下一步”看 block table 怎样一项项长出来，数字是示意：
+
+{% include kv-demo.html id="block-table" caption="图 3：block table 的增长和两条请求共用 block 的示意。虚线框是空闲的 block，里面还写着编号的是挂着哈希、仍能被命中的" %}
+
 一个物理 block 被几条请求引用，在 KV 占用里只算一次。下面用 4 个会话的实验核对这一点。
 
 ## 4 个会话时的 block 占用
@@ -127,7 +131,7 @@ block table 让 KV 可以分散存放，代价是 attention 读 KV 时要多查�
 | attention，36 层合计 | 9.47 ms | 0.65 ms |
 | 把新 token 的 KV 写进 block，36 层合计 | 0.26 ms | 0.055 ms |
 
-decode 一行是 7 步的典型值，各步相差不到 0.1 ms。开着 profiler 时每一步都比平时慢，第四篇里不开 profiler、一块 2048 个 token 的 prefill 是 150 ms，这里 1,798 个 token 用了 184.5 ms，所以只看比例：attention 在 prefill 里占 5%，在 decode 里占 4%；写 KV 在两种步里都不到 0.4%。
+decode 一行是 7 步的典型值，各步相差不到 0.1 ms。这些是开着 profiler 量的 GPU 时间。profiler 主要拖慢 CPU 一侧，decode 一步加上采样是 17.27 ms，和不开 profiler 时每秒 52 到 58 个 token 对得上。下面只看比例：attention 在 prefill 里占 5%，在 decode 里占 4%；写 KV 在两种步里都不到 0.4%。
 
 ## block 大小
 
