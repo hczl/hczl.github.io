@@ -8,6 +8,8 @@
  *   rows: [{key: running, name: 运行队列, optional: true}]，optional 的行在这一步没给数据时隐藏
  *   marks: {lost: 丢失}，标记文字；没列出的标记原样显示
  * 队列行的条目同样可以写 "7@A"；行数据写成字符串时原样显示。
+ *   grids: [{key: g0, label: 卡 0, aria_name: 卡 0, columns: 8}]，画多组格子，每一步用 key 给出各组的格子，
+ *          不再用 blocks；每一步可写 grid_labels: {g0: 新标题} 换掉这一步的标题
  */
 (() => {
   const el = (tag, cls, text) => {
@@ -67,21 +69,27 @@
     const cfgSrc = root.querySelector('.kv-demo-config');
     if (cfgSrc) { try { cfg = JSON.parse(cfgSrc.textContent) || {}; } catch (e) { cfg = {}; } }
     const marks = Object.assign({ hit: '命中', re: '重算' }, cfg.marks || {});
-    const n = steps[0].blocks.length;
+    const multi = Array.isArray(cfg.grids) && cfg.grids.length > 0;
+    const specs = multi ? cfg.grids : [{ key: 'blocks', label: cfg.grid_label || 'KV Cache（{n} 个 block）' }];
+    if (specs.some((g) => !Array.isArray(steps[0][g.key]))) return;
 
     const stage = el('div', 'kvd-stage');
-    const gridLabel = el('div', 'kvd-label', (cfg.grid_label || 'KV Cache（{n} 个 block）').replace('{n}', n));
-    const grid = el('div', 'kvd-grid');
-    grid.style.setProperty('--kvd-n', n);
-    const cells = [];
-    for (let i = 0; i < n; i++) {
-      const c = el('div', 'kvd-cell');
-      if (cfg.index) c.appendChild(el('span', 'kvd-index', String(i)));
-      c.appendChild(el('span', 'kvd-tag'));
-      c.appendChild(el('span', 'kvd-mark'));
-      grid.appendChild(c);
-      cells.push(c);
-    }
+    const grids = specs.map((spec) => {
+      const n = steps[0][spec.key].length;
+      const label = el('div', 'kvd-label', (spec.label || '').replace('{n}', n));
+      const grid = el('div', 'kvd-grid');
+      grid.style.setProperty('--kvd-n', spec.columns || n);
+      const cells = [];
+      for (let i = 0; i < n; i++) {
+        const c = el('div', 'kvd-cell');
+        if (cfg.index) c.appendChild(el('span', 'kvd-index', String(i)));
+        c.appendChild(el('span', 'kvd-tag'));
+        c.appendChild(el('span', 'kvd-mark'));
+        grid.appendChild(c);
+        cells.push(c);
+      }
+      return { spec, n, label, grid, cells };
+    });
 
     const queues = el('div', 'kvd-queues');
     const rows = (cfg.rows || defaultRows).map((spec) => {
@@ -119,7 +127,8 @@
     [prev, next, play, reset, speed].forEach((b) => { b.type = 'button'; });
     controls.append(prev, counter, next, play, reset, speed);
 
-    stage.append(gridLabel, grid, legend, queues, text, controls);
+    grids.forEach((g) => stage.append(g.label, g.grid));
+    stage.append(legend, queues, text, controls);
     const fallback = root.querySelector('.kv-demo-fallback');
     if (fallback) fallback.hidden = true;
     root.insertBefore(stage, src);
@@ -131,28 +140,34 @@
 
     function render(idx) {
       const s = steps[idx];
-      const before = idx > 0 ? steps[idx - 1].blocks : null;
-      s.blocks.forEach((raw, i) => {
-        const b = parse(raw);
-        const c = cells[i];
-        c.className = `kvd-cell kvd-${b.kind}`;
-        if (b.req) c.dataset.req = b.req; else delete c.dataset.req;
-        c.querySelector('.kvd-tag').textContent = b.label;
-        const mark = b.mark ? (marks[b.mark] != null ? marks[b.mark] : b.mark) : '';
-        c.querySelector('.kvd-mark').textContent = mark;
-        if (b.mark === 'hit' || b.mark === 're') c.classList.add(`kvd-${b.mark}`);
-        const changed = before && before[i] !== raw;
-        if (changed && !reduce) {
-          c.classList.remove('kvd-changed');
-          void c.offsetWidth;
-          c.classList.add('kvd-changed');
-        } else if (changed) {
-          c.classList.add('kvd-changed-static');
-        }
-        let state;
-        if (cfg.aria === 'label') state = `${b.label || '空'}${mark ? '，' + mark : ''}`;
-        else state = b.kind === 'empty' ? '空闲' : b.kind === 'cached' ? `空闲，可命中的 ${b.label}${mark ? '，' + mark : ''}` : `${b.label}${mark ? '，' + mark : ''}`;
-        c.setAttribute('aria-label', cfg.aria === 'label' ? state : `block ${i}：${state}`);
+      grids.forEach(({ spec, n, label, cells }) => {
+        const labels = s.grid_labels || {};
+        if (multi) label.textContent = (labels[spec.key] || spec.label || '').replace('{n}', n);
+        const before = idx > 0 ? steps[idx - 1][spec.key] : null;
+        (s[spec.key] || []).forEach((raw, i) => {
+          const b = parse(raw);
+          const c = cells[i];
+          if (!c) return;
+          c.className = `kvd-cell kvd-${b.kind}`;
+          if (b.req) c.dataset.req = b.req; else delete c.dataset.req;
+          c.querySelector('.kvd-tag').textContent = b.label;
+          const mark = b.mark ? (marks[b.mark] != null ? marks[b.mark] : b.mark) : '';
+          c.querySelector('.kvd-mark').textContent = mark;
+          if (b.mark === 'hit' || b.mark === 're') c.classList.add(`kvd-${b.mark}`);
+          const changed = before && before[i] !== raw;
+          if (changed && !reduce) {
+            c.classList.remove('kvd-changed');
+            void c.offsetWidth;
+            c.classList.add('kvd-changed');
+          } else if (changed) {
+            c.classList.add('kvd-changed-static');
+          }
+          let state;
+          if (cfg.aria === 'label') state = `${b.label || '空'}${mark ? '，' + mark : ''}`;
+          else state = b.kind === 'empty' ? '空闲' : b.kind === 'cached' ? `空闲，可命中的 ${b.label}${mark ? '，' + mark : ''}` : `${b.label}${mark ? '，' + mark : ''}`;
+          const where = multi ? `${spec.aria_name || spec.key} 第 ${i} 格` : `block ${i}`;
+          c.setAttribute('aria-label', cfg.aria === 'label' ? state : `${where}：${state}`);
+        });
       });
       rows.forEach(({ spec, r, box }) => {
         const v = s[spec.key];

@@ -63,3 +63,4 @@
 .kvd-val{font-size:13px;color:var(--ink)}
 @media(max-width:560px){.kv-demo{padding:16px 14px 14px}.kvd-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.kvd-row{flex-direction:column;align-items:flex-start;gap:3px}.kvd-row-name{flex:none;font-size:12px}.kvd-text{min-height:8em}}
 @media(prefers-reduced-motion:reduce){.kvd-cell{transition:none}}
+.kvd-grid+.kvd-label{margin-top:14px}
