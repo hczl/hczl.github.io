@@ -1,0 +1,35 @@
+# 第十一篇：工具定义的顺序和前缀缓存。一格是 prompt 里的一段，不是一个 block；段的长短不按比例。
+# 每一步的实测数字来自正文里 44 个工具的实验。
+# 格子写法见 assets/kv-demo.js 开头（grids）。
+title: 示意：一格是 prompt 里的一段，不按长短比例。system 消息里依次是系统提示、6 个工具的定义、一段调用格式的说明，后面是用户消息。
+config:
+  grids:
+    - {key: g0, label: 上一条请求（已经算完，KV 在前缀缓存里）, aria_name: 上一条请求, columns: 10}
+    - {key: g1, label: 这一条请求, aria_name: 这一条请求, columns: 10}
+  legend:
+    - {swatch: cached, color: A, text: 留在前缀缓存里}
+    - {swatch: used, color: P, text: 系统提示和格式说明}
+    - {swatch: used, color: A, text: 工具定义}
+    - {swatch: used, color: B, text: 用户消息}
+  rows:
+    - {key: real, name: 实测（44 个工具）, optional: true}
+steps:
+  - text: 上一条请求算完以后，整段 prompt 的 KV 都留在前缀缓存里。第六篇讲过，下一条请求从第一个 token 往后比，比到第一个不同的 token 就停，后面的内容哪怕一字不差也不能命中。
+    g0: ["~系统@P", "~T1@A", "~T2@A", "~T3@A", "~T4@A", "~T5@A", "~T6@A", "~说明@P", "~用户@B", "."]
+    g1: [".", ".", ".", ".", ".", ".", ".", ".", ".", "."]
+  - text: 工具完全相同，只换了用户消息。用户消息之前的部分全部命中，只算用户消息和后面的几个 token。
+    g0: ["~系统@P", "~T1@A", "~T2@A", "~T3@A", "~T4@A", "~T5@A", "~T6@A", "~说明@P", "~用户@B", "."]
+    g1: ["系统@P:hit", "T1@A:hit", "T2@A:hit", "T3@A:hit", "T4@A:hit", "T5@A:hit", "T6@A:hit", "说明@P:hit", "用户@B:re", "."]
+    real: prompt 10,241 个 token，命中 10,208 个，首个 chunk 0.22 秒
+  - text: 在工具列表末尾加一个工具 T7。前 6 个工具的位置和内容都没变，照样命中；T7 本身、它后面的格式说明和用户消息都要算。
+    g0: ["~系统@P", "~T1@A", "~T2@A", "~T3@A", "~T4@A", "~T5@A", "~T6@A", "~说明@P", "~用户@B", "."]
+    g1: ["系统@P:hit", "T1@A:hit", "T2@A:hit", "T3@A:hit", "T4@A:hit", "T5@A:hit", "T6@A:hit", "T7@A:re", "说明@P:re", "用户@B:re"]
+    real: prompt 10,303 个 token，命中 10,160 个，首个 chunk 0.23 秒
+  - text: 工具还是这 6 个，只是倒过来排。第一个工具的位置上换成了 T6，从这里开始就对不上了，只有前面的系统提示还能命中，后面的工具全部重算。
+    g0: ["~系统@P", "~T1@A", "~T2@A", "~T3@A", "~T4@A", "~T5@A", "~T6@A", "~说明@P", "~用户@B", "."]
+    g1: ["系统@P:hit", "T6@A:re", "T5@A:re", "T4@A:re", "T3@A:re", "T2@A:re", "T1@A:re", "说明@P:re", "用户@B:re", "."]
+    real: prompt 10,239 个 token，命中 96 个，首个 chunk 1.38 秒
+  - text: 顺序不变，只在第一个工具的描述后面加了“（只读）”几个字。T1 从描述那里开始不同，后面的工具一个字没改，也一样要重算。
+    g0: ["~系统@P", "~T1@A", "~T2@A", "~T3@A", "~T4@A", "~T5@A", "~T6@A", "~说明@P", "~用户@B", "."]
+    g1: ["系统@P:hit", "T1′@A:re", "T2@A:re", "T3@A:re", "T4@A:re", "T5@A:re", "T6@A:re", "说明@P:re", "用户@B:re", "."]
+    real: prompt 10,244 个 token，命中 112 个，首个 chunk 1.38 秒
