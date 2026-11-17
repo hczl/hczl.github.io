@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from urllib.request import urlopen
 
 root = Path(sys.argv[1])
 revision = os.environ["GITHUB_SHA"]
@@ -46,7 +45,10 @@ with tempfile.TemporaryDirectory() as temp:
         origin + "/_publish/blog",
     ], input=auth, text=True, check=True)
 # An HTTP success must correspond to the commit readers actually receive.
-with urlopen(origin + "/github-revision.txt?verify=" + revision, timeout=30) as response:
-    if response.read().decode().strip() != revision:
-        raise RuntimeError("The live blog does not report the uploaded commit")
+live = subprocess.check_output([
+    "curl", "--fail", "--silent", "--show-error", "--retry", "3", "--max-time", "30",
+    origin + "/github-revision.txt?verify=" + revision,
+], text=True).strip()
+if live != revision:
+    raise RuntimeError("The live blog does not report the uploaded commit")
 print(f"Published {len(files)} files at {revision}")
