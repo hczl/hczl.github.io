@@ -1,0 +1,39 @@
+name: Publish blog to Sites
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-blog-to-sites
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SITE_URL: https://hczl-tech-notes.x1140630316.chatgpt.site
+      JEKYLL_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler: '2.4.22'
+      - name: Build the blog for its Sites domain
+        run: |
+          bundle lock --add-platform x86_64-linux
+          bundle install --jobs 4 --retry 3
+          echo "url: $SITE_URL" > "$RUNNER_TEMP/sites.yml"
+          bundle exec jekyll build --config "_config.yml,$RUNNER_TEMP/sites.yml" --destination "$RUNNER_TEMP/blog"
+      - name: Publish the complete build
+        env:
+          SITES_PUBLISH_KEY: ${{ secrets.SITES_PUBLISH_KEY }}
+        run: python3 .github/scripts/publish_sites.py "$RUNNER_TEMP/blog"
