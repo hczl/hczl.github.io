@@ -1,0 +1,38 @@
+# MiTA 解读稿：标准注意力、只压缩、按块路由、top-k、MiTA 五种做法下一个 query 看哪些 KV，对应论文图 1、图 7。
+title: 同样 8 对 key-value，五种注意力机制下 query q3 各自访问哪几对（示意数据，按论文图 1、图 7 的分类绘制）。
+config:
+  grid_label: 8 对 key-value（k0～k7，按序列位置排列）
+  aria: label
+  legend:
+    - {swatch: used, color: A, text: q3 访问的原始 KV}
+    - {swatch: cached, color: G, text: q3 不访问}
+  rows:
+    - {key: q, name: q3 访问的 KV}
+    - {key: q5, name: q5 访问的 KV, optional: true}
+    - {key: experts, name: 快权重专家形态}
+steps:
+  - text: 标准注意力：q3 访问全部 8 对原始 KV，相当于所有 query 共用一个宽度等于序列长度 N 的快权重 MLP，序列越长开销越大。
+    blocks: [k0@A, k1@A, k2@A, k3@A, k4@A, k5@A, k6@A, k7@A]
+    q: [k0～k7 全部 8 对@A]
+    experts: 1 个，所有 query 共用，宽度等于序列长度
+  - text: 只压缩（线性注意力、Linformer、Agent Attention、TTT 等）：先把全部 8 对压成固定大小的摘要模块（这里画成 2 对摘要），q3 只看摘要、看不到原始 KV，能保留全局视野但压缩必然带来信息损失。
+    blocks: ["~k0@G:压进摘要", "~k1@G:压进摘要", "~k2@G:压进摘要", "~k3@G:压进摘要", "~k4@G:压进摘要", "~k5@G:压进摘要", "~k6@G:压进摘要", "~k7@G:压进摘要"]
+    q: [摘要 1@S, 摘要 2@S]
+    experts: 1 个压缩后的共享模块
+  - text: 按块路由（MoBA 等）：按序列位置每 2 对切成连续固定块，共 4 块；q3 路由到第 3 块后只看 k4、k5。原始 KV 无损且对硬件友好，但分块位置僵硬、缺少块外的全局上下文。
+    blocks: ["~k0@A:块 1", "~k1@A:块 1", "~k2@B:块 2", "~k3@B:块 2", "k4@C:块 3", "k5@C:块 3", "~k6@D:块 4", "~k7@D:块 4"]
+    q: [k4@C, k5@C]
+    experts: 4 个，按位置切块，形状固定
+  - text: top-k 注意力（Spark Attention、DeepSeek Sparse Attention）：q3 先低成本粗扫全部 8 个 key，按内容挑出最相关的 2 个（k1 和 k6），不再受连续位置限制。
+    blocks: ["~k0@G", "k1@A:q3 选中", "~k2@G", "~k3@G", "~k4@G", "~k5@G", "k6@A:q3 选中", "~k7@G"]
+    q: [k1@A, k6@A]
+    experts: q3 独占一组 top-k 专家
+  - text: 问题在于每个 query 都要各挑一组：q5 挑中的是 k2 和 k6，和 q3 不同。N 个 query 就会形成 N 组互不复用的私密专家，专家总数仍然随序列长度线性增长。
+    blocks: ["~k0@G", "k1@A:q3 选中", "k2@B:q5 选中", "~k3@G", "~k4@G", "~k5@G", "k6@E:两者都选", "~k7@G"]
+    q: [k1@A, k6@A]
+    q5: [k2@B, k6@B]
+    experts: 每个 query 独立一组，共 N 组
+  - text: MiTA：先用 2 个 landmark query 按内容各挑一组 top-2 形成可复用的动态专家（专家 0 含 k1、k6，专家 1 含 k2、k5），同时压出 2 对全局摘要作为共享专家。q3 路由到专家 0 后，一共只看 2 对摘要加 2 对原始 KV，专家总数固定为 m，与 N 无关。
+    blocks: ["~k0@G", "k1@C:专家 0", "~k2@D:专家 1", "~k3@G", "~k4@G", "~k5@D:专家 1", "k6@C:专家 0", "~k7@G"]
+    q: [摘要 q̃0@S, 摘要 q̃1@S, k1@C, k6@C]
+    experts: m = 2 个动态路由专家 + 1 个压缩共享专家

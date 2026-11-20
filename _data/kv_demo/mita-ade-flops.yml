@@ -1,0 +1,32 @@
+# MiTA 解读稿：ADE20K 上 MiTA 相对同骨干 CBT 头的 FLOPs 和 mIoU，数字取自论文表 4。
+title: ADE20K 语义分割上把 ImageNet-21K 预训练 ViT 骨干的注意力直接替换为 MiTA（m = k = 49）后，FLOPs 与 mIoU 的变化（数据取自论文表 4，以同骨干 CBT 分割头为 100%）。
+config:
+  scale: 100
+  digits: 1
+  min_pct: 3
+  unit: "%"
+  axis: ["0", "原模型 FLOPs = 100%"]
+  rest_label: 减少的计算量
+  bars:
+    - {key: base, name: 原模型}
+    - {key: mita, name: 替换为 MiTA}
+  legend:
+    - {color: G, text: 全注意力 ViT + CBT 头}
+    - {color: A, text: 替换为 MiTA 后}
+steps:
+  - text: ViT-T（512×512）：FLOPs 从 12G 降到 7G（减少 42%），mIoU 从 39.1% 降到 36.5%（下降 2.6 个百分点）。
+    bars:
+      base: {name: ViT-T + CBT：12G, segs: [[FLOPs, 100, G]], note: mIoU 39.1%}
+      mita: {name: MiTA-ViT-T + CBT：7G, segs: [[FLOPs, 58.3, A]], note: mIoU 36.5%（−2.6）, bad: true}
+  - text: ViT-S（512×512）：FLOPs 从 33G 降到 25G（减少 24%），mIoU 从 45.8% 降到 44.5%（下降 1.3 个百分点）。
+    bars:
+      base: {name: ViT-S + CBT：33G, segs: [[FLOPs, 100, G]], note: mIoU 45.8%}
+      mita: {name: MiTA-ViT-S + CBT：25G, segs: [[FLOPs, 75.8, A]], note: mIoU 44.5%（−1.3）, bad: true}
+  - text: ViT-B（512×512）：FLOPs 从 111G 降到 95G（减少 14%），mIoU 从 49.3% 降到 48.1%（下降 1.2 个百分点）。
+    bars:
+      base: {name: ViT-B + CBT：111G, segs: [[FLOPs, 100, G]], note: mIoU 49.3%}
+      mita: {name: MiTA-ViT-B + CBT：95G, segs: [[FLOPs, 85.6, A]], note: mIoU 48.1%（−1.2）, bad: true}
+  - text: ViT-L（640×640）：FLOPs 从 622G 降到 508G（减少 18%），mIoU 从 53.3% 降到 50.5%（下降 2.8 个百分点）。四组骨干均以全注意力预训练后直接替换，未用 MiTA 从头预训练。
+    bars:
+      base: {name: ViT-L + CBT：622G, segs: [[FLOPs, 100, G]], note: mIoU 53.3%}
+      mita: {name: MiTA-ViT-L + CBT：508G, segs: [[FLOPs, 81.7, A]], note: mIoU 50.5%（−2.8）, bad: true}

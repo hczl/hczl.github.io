@@ -1,4 +1,4 @@
-.atd-grid{display:grid;grid-template-columns:repeat(var(--atd-n,4),minmax(0,1fr));gap:6px;max-width:calc(var(--atd-n,4)*118px)}
+.atd-grid{display:grid;grid-template-columns:repeat(var(--atd-n,4),minmax(0,1fr));gap:6px}
 .atd-cell{position:relative;min-height:58px;padding:6px 4px 9px;border:1.5px solid var(--line);border-radius:6px;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;font:600 14px var(--mono);color:var(--ink);overflow:hidden;transition:background-color calc(var(--kvd-dur,.35s)*.5),border-color calc(var(--kvd-dur,.35s)*.5),opacity calc(var(--kvd-dur,.35s)*.6)}
 .atd-cell.atd-empty{border-style:dashed}
 .atd-mark{font:500 11.5px/1.25 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;margin-top:3px;min-height:14px;text-align:center;overflow-wrap:anywhere}
