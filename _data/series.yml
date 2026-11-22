@@ -51,3 +51,18 @@
     - 昇腾 NPU 上的 vLLM
     - 扩展：工具调用
     - 扩展：投机解码与 MTP
+- id: interp
+  title: 神经网络可解释性
+  description: 按先后顺序精读机械可解释性方向的五篇代表作，手推注意力电路的矩阵分解、低维空间的特征叠加几何、稀疏自编码器解耦、模加法顿悟的三角函数算法，以及大模型行为方向的定位与权重干预。
+  # 精读论文与对应篇目：
+  # 1. Elhage et al., "A Mathematical Framework for Transformer Circuits", Transformer Circuits Thread, 2021 (https://transformer-circuits.pub/2021/framework/index.html)
+  # 2. Elhage et al., "Toy Models of Superposition", Transformer Circuits Thread, 2022 (https://transformer-circuits.pub/2022/toy_model/index.html)
+  # 3. Bricken et al., "Towards Monosemanticity: Decomposing Language Models With Dictionary Learning", Transformer Circuits Thread, 2023 (https://transformer-circuits.pub/2023/monosemantic-features/index.html)
+  # 4. Nanda et al., "Progress Measures for Grokking via Mechanistic Interpretability", ICLR 2023 (https://arxiv.org/abs/2301.05217)
+  # 5. Arditi et al., "Refusal in Language Models Is Mediated by a Single Direction", NeurIPS 2024 (https://arxiv.org/abs/2406.11717)
+  outline:
+    - 注意力电路：QK 与 OV 矩阵怎么搬运信息
+    - 特征叠加：低维空间怎么塞下更多概念
+    - 稀疏自编码器：把混在一起的特征拆开
+    - 顿悟现象：训练时通用算法是怎么长出来的
+    - 特征方向与权重干预
