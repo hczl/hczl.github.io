@@ -24,6 +24,8 @@ exclude:
   - README.md
   - WRITING.md
   - CLAUDE.md
+  - AGENTS.md
+  - .review-private
   - Gemfile
   - Gemfile.lock
   - vendor
