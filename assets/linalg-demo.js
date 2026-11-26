@@ -1230,7 +1230,7 @@
     };
   }
 
-  // --- Mode 4: 2D Norms, Dot Product, Angle Cosine, Orthogonality & Outer-Product Projection ---
+  // --- Mode 4: 2D Norms, Dot Product, Angle Cosine, Orthogonality, 2D->1D & 3D->2D Projection ---
   function createDotProj2D(canvas, badge, scrubInput, scrubVal, cfg, steps, onManual, onUserCustomize) {
     let activeStep = steps[0];
     let p = activeStep.t != null ? activeStep.t : 0;
@@ -1241,8 +1241,254 @@
     let angleAlpha = activeStep.show_angle ? 1 : 0;
     let halfAlpha = activeStep.show_halfplane ? 1 : 0;
     let projAlpha = activeStep.show_proj ? 1 : 0;
+    let dim3Alpha = activeStep.show_proj3d ? 1 : 0;
     let userMovedA = false;
+    let userYawOffset = 0;
+    let userPitchOffset = 0;
+    let userRotated3D = false;
     let animId = null;
+
+    const samplePts3D = [
+      [-2.2, -1.8, 3.6],
+      [-2.4, 2.2, 2.8],
+      [2.2, -2.0, 3.2],
+      [1.2, 2.0, 4.0],
+      [-0.8, -2.5, 2.2],
+    ];
+
+    function drawProj3D(ctx, W, H, alpha, prog) {
+      const cx = W * 0.5;
+      const cy = H * 0.62;
+      const scale = Math.min(W, H) / 13.6;
+      const basePitch = lerp(1.12, 0.42, alpha);
+      const yaw = -0.62 + userYawOffset;
+      const pitch = clamp(basePitch + userPitchOffset, 0.12, 1.38);
+      const cyaw = Math.cos(yaw), syaw = Math.sin(yaw);
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+
+      const project = (pt) => {
+        const x1 = pt[0] * cyaw - pt[1] * syaw;
+        const y1 = pt[0] * syaw + pt[1] * cyaw;
+        const z1 = pt[2];
+        return [cx + x1 * scale, cy - (y1 * sp + z1 * cp) * scale];
+      };
+
+      const v3 = activeStep.vec_3d || [3, 4, 5];
+      const [vx, vy, vz] = v3;
+      const hScale = 1 - prog;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // 1. Target xy-plane slab (spanned by Q = [e1, e2])
+      const ext = 4.5;
+      const c1 = project([-ext, -ext, 0]);
+      const c2 = project([ext, -ext, 0]);
+      const c3 = project([ext, ext, 0]);
+      const c4 = project([-ext, ext, 0]);
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.10)';
+      ctx.beginPath();
+      ctx.moveTo(c1[0], c1[1]); ctx.lineTo(c2[0], c2[1]);
+      ctx.lineTo(c3[0], c3[1]); ctx.lineTo(c4[0], c4[1]);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(96, 165, 250, 0.34)';
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+
+      // Reference grid lines on xy-plane
+      for (let k = -4; k <= 4; k++) {
+        ctx.strokeStyle = k === 0 ? 'rgba(148, 163, 184, 0.36)' : 'rgba(148, 163, 184, 0.12)';
+        ctx.lineWidth = k === 0 ? 1.3 : 0.85;
+        let a = project([k, -ext, 0]);
+        let b = project([k, ext, 0]);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+        a = project([-ext, k, 0]);
+        b = project([ext, k, 0]);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+      }
+
+      // Faint z-axis guide
+      const zBot = project([0, 0, -1.0]);
+      const zTop = project([0, 0, 5.6]);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.38)';
+      ctx.lineWidth = 1.25;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(zBot[0], zBot[1]); ctx.lineTo(zTop[0], zTop[1]); ctx.stroke();
+      ctx.restore();
+
+      // 2. Ghost outline of original 3D cage as it flattens
+      const cageR = 3;
+      const cageH = 4;
+      if (prog > 0.04) {
+        const ga = 0.24 * smoothstep(0.04, 0.35, prog);
+        ctx.save();
+        ctx.strokeStyle = `rgba(34, 211, 238, ${ga.toFixed(3)})`;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+        const corners = [[-cageR, -cageR], [cageR, -cageR], [cageR, cageR], [-cageR, cageR]];
+        for (let i = 0; i < 4; i++) {
+          const [x0, y0] = corners[i];
+          const [x1, y1] = corners[(i + 1) % 4];
+          const t0 = project([x0, y0, cageH]);
+          const t1 = project([x1, y1, cageH]);
+          ctx.beginPath(); ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]); ctx.stroke();
+          const b0 = project([x0, y0, 0]);
+          ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(t0[0], t0[1]); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 3. Compressing 3D cyan lattice cage: (x, y, z) -> (x, y, (1 - t)z)
+      const curH = cageH * hScale;
+      // Top translucent cyan sheet sinking into xy-plane
+      const s1 = project([-cageR, -cageR, curH]);
+      const s2 = project([cageR, -cageR, curH]);
+      const s3 = project([cageR, cageR, curH]);
+      const s4 = project([-cageR, cageR, curH]);
+      ctx.fillStyle = `rgba(34, 211, 238, ${(0.07 + 0.05 * prog).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(s1[0], s1[1]); ctx.lineTo(s2[0], s2[1]);
+      ctx.lineTo(s3[0], s3[1]); ctx.lineTo(s4[0], s4[1]);
+      ctx.closePath();
+      ctx.fill();
+
+      const levels = [0, 2, 4];
+      const coords = [-3, -1.5, 0, 1.5, 3];
+      for (const lv of levels) {
+        const z = lv * hScale;
+        const isTop = lv === 4;
+        ctx.strokeStyle = isTop ? 'rgba(56, 189, 248, 0.52)' : 'rgba(34, 211, 238, 0.24)';
+        ctx.lineWidth = isTop ? 1.25 : 0.9;
+        for (const k of coords) {
+          let a = project([k, -cageR, z]);
+          let b = project([k, cageR, z]);
+          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+          a = project([-cageR, k, z]);
+          b = project([cageR, k, z]);
+          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+        }
+      }
+      // Vertical struts collapsing to zero height
+      if (hScale > 0.02) {
+        ctx.strokeStyle = `rgba(34, 211, 238, ${(0.34 * hScale + 0.1).toFixed(3)})`;
+        ctx.lineWidth = 1.05;
+        for (const gx of [-3, 0, 3]) {
+          for (const gy of [-3, 0, 3]) {
+            const b0 = project([gx, gy, 0]);
+            const t0 = project([gx, gy, curH]);
+            ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(t0[0], t0[1]); ctx.stroke();
+          }
+        }
+      }
+
+      // 4. Floating 3D sample points dropping vertically onto xy-plane
+      for (const sp3 of samplePts3D) {
+        const foot = project([sp3[0], sp3[1], 0]);
+        const orig = project(sp3);
+        const curPt = project([sp3[0], sp3[1], sp3[2] * hScale]);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(125, 211, 252, 0.32)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath(); ctx.moveTo(foot[0], foot[1]); ctx.lineTo(orig[0], orig[1]); ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(foot[0], foot[1], 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(52, 211, 153, 0.55)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(curPt[0], curPt[1], 3.4, 0, Math.PI * 2);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fill();
+      }
+
+      // 5. Orthonormal basis vectors q1, q2 spanning the xy-plane
+      const org = project([0, 0, 0]);
+      const q1Tip = project([1.8, 0, 0]);
+      const q2Tip = project([0, 1.8, 0]);
+      drawArrow2D(ctx, org[0], org[1], q1Tip[0], q1Tip[1], '#60a5fa', 2.4, 8, false, alpha);
+      drawArrow2D(ctx, org[0], org[1], q2Tip[0], q2Tip[1], '#60a5fa', 2.4, 8, false, alpha);
+
+      // Axis labels
+      const xEnd = project([ext + 0.35, 0, 0]);
+      const yEnd = project([0, ext + 0.35, 0]);
+      const zEnd = project([0, 0, 5.85]);
+      ctx.font = '600 11.5px ui-monospace, SFMono-Regular, Menlo, sans-serif';
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('x (q₁)', xEnd[0], xEnd[1]);
+      ctx.fillText('y (q₂)', yEnd[0], yEnd[1]);
+      ctx.fillText('z', zEnd[0], zEnd[1]);
+
+      // 6. Target 3D vector a = [3, 4, 5]ᵀ, foot p = [3, 4, 0]ᵀ, residual r = [0, 0, 5]ᵀ
+      const origTip = project([vx, vy, vz]);
+      const footTip = project([vx, vy, 0]);
+      const curZ = vz * hScale;
+      const curTip = project([vx, vy, curZ]);
+
+      // Right-angle square between xy-plane (along p direction) and vertical residual
+      const pLen = Math.hypot(vx, vy) || 1;
+      const sz = 0.5;
+      const ux = -(vx / pLen) * sz;
+      const uy = -(vy / pLen) * sz;
+      const ra1 = project([vx + ux, vy + uy, 0]);
+      const ra2 = project([vx + ux, vy + uy, sz]);
+      const ra3 = project([vx, vy, sz]);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(248, 250, 252, 0.85)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(ra1[0], ra1[1]); ctx.lineTo(ra2[0], ra2[1]); ctx.lineTo(ra3[0], ra3[1]);
+      ctx.stroke();
+      ctx.restore();
+
+      // Residual dashed arrow r = a - p (vertical along z)
+      drawArrow2D(ctx, footTip[0], footTip[1], origTip[0], origTip[1], '#f87171', 2.2, 8, true, alpha * (1 - 0.45 * prog));
+      // Projection vector p = [3, 4, 0]ᵀ on xy-plane
+      drawArrow2D(ctx, org[0], org[1], footTip[0], footTip[1], '#34d399', 3.0, 9.5, false, alpha);
+
+      // Ghost original 3D arrow a = [3, 4, 5]ᵀ
+      if (prog > 0.02) {
+        drawArrow2D(ctx, org[0], org[1], origTip[0], origTip[1], 'rgba(251, 191, 36, 0.44)', 1.8, 7, true, alpha);
+      }
+      // Live compressing arrow a(t) = [3, 4, 5(1 - t)]ᵀ
+      drawArrow2D(ctx, org[0], org[1], curTip[0], curTip[1], '#fbbf24', 3.1, 10.5, false, alpha);
+
+      // Origin dot
+      ctx.beginPath();
+      ctx.arc(org[0], org[1], 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fill();
+
+      // Labels
+      const aLbl = prog > 0.94
+        ? `(QQᵀ)a = [${fmt(vx)}, ${fmt(vy)}, 0]ᵀ`
+        : `a = [${fmt(vx)}, ${fmt(vy)}, ${fmt(curZ)}]ᵀ`;
+      const lblSide = curTip[0] > W * 0.62 ? 'right' : 'left';
+      const lblDx = lblSide === 'right' ? -10 : 10;
+      drawPillLabel(ctx, curTip[0] + lblDx, curTip[1] - 10, aLbl, '#fde68a', lblSide, alpha);
+      if (prog < 0.85) {
+        drawPillLabel(ctx, footTip[0] + lblDx, footTip[1] + 14,
+          `p = [${fmt(vx)}, ${fmt(vy)}, 0]ᵀ`, '#6ee7b7', lblSide, alpha * (1 - smoothstep(0.65, 0.85, prog)));
+      }
+      const planeLbl = project([-3.1, -3.5, 0]);
+      drawPillLabel(ctx, planeLbl[0], planeLbl[1], '目标平面 xy (z = 0)', '#93c5fd', 'center', alpha * 0.92);
+
+      ctx.restore();
+
+      // HUD badge
+      badge.classList.toggle('m3b-hit', prog > 0.94);
+      if (prog > 0.94) {
+        badge.textContent = `三维压入 xy 平面（秩为 2）：P = QQᵀ = diag(1, 1, 0)，(QQᵀ)a = [${fmt(vx)}, ${fmt(vy)}, 0]ᵀ`;
+      } else {
+        badge.textContent = `P = QQᵀ = diag(1, 1, 0) | a = [${fmt(vx)}, ${fmt(vy)}, ${fmt(vz)}]ᵀ → [${fmt(vx)}, ${fmt(vy)}, ${fmt(curZ)}]ᵀ (z 缩为 ${fmt(hScale)} 倍)`;
+      }
+    }
 
     function paint() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1256,298 +1502,309 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
 
-      const cx = W * 0.5;
-      const cy = H * 0.52;
-      const scale = Math.min(W, H) / 10.4;
-      const toScreen = (x, y) => [cx + x * scale, cy - y * scale];
-
+      const alpha2D = 1 - dim3Alpha;
       const [ax, ay] = vecA;
       const [bx, by] = vecB;
       const b2 = bx * bx + by * by || 1;
       const P = [(bx * bx) / b2, (bx * by) / b2, (by * bx) / b2, (by * by) / b2];
-      const gridProg = bAlpha > 0.5 ? p : 0;
-      const M = [
-        1 + gridProg * (P[0] - 1),
-        gridProg * P[1],
-        gridProg * P[2],
-        1 + gridProg * (P[3] - 1),
-      ];
-      const applyM = (x, y) => [M[0] * x + M[1] * y, M[2] * x + M[3] * y];
-
-      // 1. Background fixed reference grid
-      ctx.save();
-      ctx.lineWidth = 1;
-      for (let k = -11; k <= 11; k++) {
-        ctx.strokeStyle = k === 0 ? 'rgba(148, 163, 184, 0.30)' : 'rgba(148, 163, 184, 0.09)';
-        const [x0, y0] = toScreen(k, -11);
-        const [x1, y1] = toScreen(k, 11);
-        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-        const [hx0, hy0] = toScreen(-11, k);
-        const [hx1, hy1] = toScreen(11, k);
-        ctx.beginPath(); ctx.moveTo(hx0, hy0); ctx.lineTo(hx1, hy1); ctx.stroke();
-      }
-      ctx.restore();
-
-      // 2. Deforming cyan grid when applying P = qqᵀ (or subtle cyan grid ready to project)
-      if (projAlpha > 0.02) {
-        ctx.save();
-        ctx.globalAlpha = 0.35 + 0.65 * projAlpha;
-        for (let k = -7; k <= 7; k++) {
-          const major = k === 0;
-          ctx.strokeStyle = major ? 'rgba(56, 189, 248, 0.50)' : 'rgba(34, 211, 238, 0.18)';
-          ctx.lineWidth = major ? 1.4 : 0.95;
-          let [u0, v0] = applyM(k, -7);
-          let [u1, v1] = applyM(k, 7);
-          let [sx0, sy0] = toScreen(u0, v0);
-          let [sx1, sy1] = toScreen(u1, v1);
-          ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(sx1, sy1); ctx.stroke();
-
-          [u0, v0] = applyM(-7, k);
-          [u1, v1] = applyM(7, k);
-          [sx0, sy0] = toScreen(u0, v0);
-          [sx1, sy1] = toScreen(u1, v1);
-          ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(sx1, sy1); ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      const maxR = Math.hypot(W, H);
+      const gridProg = (bAlpha > 0.5 && dim3Alpha < 0.5) ? p : 0;
       const bNorm = Math.hypot(bx, by) || 1;
       const aNorm = Math.hypot(ax, ay);
-
-      // 3. Orthogonal half-planes & perpendicular dividing line bᵀx = 0
-      if (halfAlpha > 0.01) {
-        const ux = bx / bNorm;
-        const uy = by / bNorm;
-        const nx = -uy;
-        const ny = ux;
-        const big = 18;
-        ctx.save();
-        ctx.globalAlpha = halfAlpha;
-        const q1 = toScreen(nx * big, ny * big);
-        const q2 = toScreen(-nx * big, -ny * big);
-        const q3 = toScreen(-nx * big + ux * big, -ny * big + uy * big);
-        const q4 = toScreen(nx * big + ux * big, ny * big + uy * big);
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.075)';
-        ctx.beginPath();
-        ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]);
-        ctx.lineTo(q3[0], q3[1]); ctx.lineTo(q4[0], q4[1]);
-        ctx.closePath(); ctx.fill();
-
-        const r3 = toScreen(-nx * big - ux * big, -ny * big - uy * big);
-        const r4 = toScreen(nx * big - ux * big, ny * big - uy * big);
-        ctx.fillStyle = 'rgba(248, 113, 113, 0.065)';
-        ctx.beginPath();
-        ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]);
-        ctx.lineTo(r3[0], r3[1]); ctx.lineTo(r4[0], r4[1]);
-        ctx.closePath(); ctx.fill();
-        ctx.restore();
-
-        drawSpanLine(ctx, cx, cy, nx, ny, maxR, '#e2e8f0', 0.62 * halfAlpha);
-        const posLbl = toScreen(ux * 3.1 + nx * 2.2, uy * 3.1 + ny * 2.2);
-        const negLbl = toScreen(-ux * 3.1 - nx * 1.8, -uy * 3.1 - ny * 1.8);
-        drawPillLabel(ctx, posLbl[0], posLbl[1], '锐角半平面 aᵀb > 0', '#93c5fd', 'center', halfAlpha * 0.9);
-        drawPillLabel(ctx, negLbl[0], negLbl[1], '钝角半平面 aᵀb < 0', '#fca5a5', 'center', halfAlpha * 0.9);
-      }
-
-      // 4. Constant-norm contours (r = 3: L1 diamond, L2 circle, L∞ square) + unit circle & â
-      if (normAlpha > 0.01) {
-        const r = 3;
-        ctx.save();
-        ctx.globalAlpha = normAlpha;
-        // L∞ square
-        const sqA = toScreen(-r, -r), sqB = toScreen(r, r);
-        ctx.strokeStyle = 'rgba(192, 132, 252, 0.68)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([5, 4]);
-        ctx.strokeRect(sqA[0], sqB[1], sqB[0] - sqA[0], sqA[1] - sqB[1]);
-
-        // L2 circle
-        ctx.setLineDash([]);
-        ctx.strokeStyle = 'rgba(96, 165, 250, 0.78)';
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // L1 diamond
-        const dN = toScreen(0, r), dE = toScreen(r, 0), dS = toScreen(0, -r), dW = toScreen(-r, 0);
-        ctx.strokeStyle = 'rgba(52, 211, 153, 0.78)';
-        ctx.lineWidth = 1.6;
-        ctx.setLineDash([5, 3]);
-        ctx.beginPath();
-        ctx.moveTo(dN[0], dN[1]); ctx.lineTo(dE[0], dE[1]);
-        ctx.lineTo(dS[0], dS[1]); ctx.lineTo(dW[0], dW[1]);
-        ctx.closePath();
-        ctx.stroke();
-
-        // Unit circle r = 1
-        ctx.strokeStyle = 'rgba(226, 232, 240, 0.35)';
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.arc(cx, cy, scale, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-
-        drawPillLabel(ctx, sqB[0] + 6, sqB[1] + 2, '‖x‖∞ = 3（正方形）', '#e9d5ff', 'left', normAlpha);
-        const cPos = toScreen(-2.12, 2.12);
-        drawPillLabel(ctx, cPos[0] - 6, cPos[1] - 8, '‖x‖₂ = 3（正圆）', '#93c5fd', 'right', normAlpha);
-        drawPillLabel(ctx, dN[0] + 8, dN[1] - 4, '‖x‖₁ = 3（菱形）', '#6ee7b7', 'left', normAlpha);
-
-        if (aNorm > 0.05) {
-          const ux = ax / aNorm, uy = ay / aNorm;
-          const [uhx, uhy] = toScreen(ux, uy);
-          drawArrow2D(ctx, cx, cy, uhx, uhy, '#34d399', 2.6, 8.5, false, normAlpha);
-          drawPillLabel(ctx, uhx + (ux >= 0 ? 8 : -8), uhy + (uy >= 0 ? -12 : 12),
-            `â = [${fmt(ux)}, ${fmt(uy)}]ᵀ`, '#6ee7b7', ux >= 0 ? 'left' : 'right', normAlpha);
-        }
-      }
-
-      // 5. Reference vector b & its span line
-      if (bAlpha > 0.01) {
-        if (projAlpha > 0.01) {
-          drawSpanLine(ctx, cx, cy, bx, by, maxR, '#60a5fa', 0.55 * bAlpha * projAlpha);
-        }
-        const [bsx, bsy] = toScreen(bx, by);
-        drawArrow2D(ctx, cx, cy, bsx, bsy, '#60a5fa', 2.9, 10, false, bAlpha);
-        drawPillLabel(ctx, bsx + (bx >= 0 ? 9 : -9), bsy - (by >= 0 ? 12 : -12),
-          `b = [${fmt(bx)}, ${fmt(by)}]ᵀ`, '#93c5fd', bx >= 0 ? 'left' : 'right', bAlpha);
-      }
-
-      // 6. Angle arc or right-angle marker at origin
       const dot = ax * bx + ay * by;
       const cos = aNorm > 1e-5 ? clamp(dot / (aNorm * bNorm), -1, 1) : 0;
       const deg = (Math.acos(cos) * 180) / Math.PI;
-      if (angleAlpha > 0.01 && bAlpha > 0.01 && aNorm > 0.15) {
-        if (Math.abs(cos) < 0.035) {
-          const r = 0.34;
-          const e1x = (bx / bNorm) * r, e1y = (by / bNorm) * r;
-          const e2x = (ax / aNorm) * r, e2y = (ay / aNorm) * r;
-          const pA = toScreen(e1x, e1y);
-          const pB = toScreen(e1x + e2x, e1y + e2y);
-          const pC = toScreen(e2x, e2y);
-          ctx.save();
-          ctx.globalAlpha = 0.9 * angleAlpha * bAlpha;
-          ctx.strokeStyle = '#f8fafc';
-          ctx.lineWidth = 1.6;
-          ctx.beginPath();
-          ctx.moveTo(pA[0], pA[1]); ctx.lineTo(pB[0], pB[1]); ctx.lineTo(pC[0], pC[1]);
-          ctx.stroke();
-          ctx.restore();
-        } else {
-          const angB = Math.atan2(by, bx);
-          const angA = Math.atan2(ay, ax);
-          const dAng = Math.atan2(Math.sin(angA - angB), Math.cos(angA - angB));
-          const rad = Math.min(1.05, 0.38 * Math.min(aNorm, bNorm));
-          ctx.save();
-          ctx.globalAlpha = 0.85 * angleAlpha * bAlpha;
-          ctx.strokeStyle = '#fde68a';
-          ctx.lineWidth = 1.7;
-          ctx.beginPath();
-          const stepsArc = 28;
-          for (let i = 0; i <= stepsArc; i++) {
-            const th = angB + (dAng * i) / stepsArc;
-            const [sx, sy] = toScreen(Math.cos(th) * rad, Math.sin(th) * rad);
-            if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
-          }
-          ctx.stroke();
-          const mid = angB + dAng * 0.5;
-          const [lx, ly] = toScreen(Math.cos(mid) * (rad + 0.42), Math.sin(mid) * (rad + 0.42));
-          ctx.font = '600 11.5px ui-monospace, SFMono-Regular, Menlo, sans-serif';
-          ctx.fillStyle = '#fde68a';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`${fmt(deg)}°`, lx, ly);
-          ctx.restore();
-        }
-      }
-
-      // 7. Orthogonal projection p onto span(b) + perpendicular residual a - p + right-angle square at foot
       const cProj = dot / b2;
       const px = cProj * bx;
       const py = cProj * by;
       const rx = ax - px;
       const ry = ay - py;
-      const rNorm = Math.hypot(rx, ry);
-      if (projAlpha > 0.01 && bAlpha > 0.01) {
-        const [psx, psy] = toScreen(px, py);
-        const [asx, asy] = toScreen(ax, ay);
-        if (rNorm > 0.2) {
-          const sz = Math.min(0.32, 0.35 * rNorm);
-          const sgnB = cProj >= 0 ? -1 : 1;
-          const uBx = (sgnB * bx / bNorm) * sz;
-          const uBy = (sgnB * by / bNorm) * sz;
-          const uRx = (rx / rNorm) * sz;
-          const uRy = (ry / rNorm) * sz;
-          const cA = toScreen(px + uBx, py + uBy);
-          const cB = toScreen(px + uBx + uRx, py + uBy + uRy);
-          const cC = toScreen(px + uRx, py + uRy);
+
+      if (alpha2D > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = alpha2D;
+
+        const cx = W * 0.5;
+        const cy = H * 0.52;
+        const scale = Math.min(W, H) / 10.4;
+        const toScreen = (x, y) => [cx + x * scale, cy - y * scale];
+
+        const M = [
+          1 + gridProg * (P[0] - 1),
+          gridProg * P[1],
+          gridProg * P[2],
+          1 + gridProg * (P[3] - 1),
+        ];
+        const applyM = (x, y) => [M[0] * x + M[1] * y, M[2] * x + M[3] * y];
+
+        // 1. Background fixed reference grid
+        ctx.save();
+        ctx.lineWidth = 1;
+        for (let k = -11; k <= 11; k++) {
+          ctx.strokeStyle = k === 0 ? 'rgba(148, 163, 184, 0.30)' : 'rgba(148, 163, 184, 0.09)';
+          const [x0, y0] = toScreen(k, -11);
+          const [x1, y1] = toScreen(k, 11);
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+          const [hx0, hy0] = toScreen(-11, k);
+          const [hx1, hy1] = toScreen(11, k);
+          ctx.beginPath(); ctx.moveTo(hx0, hy0); ctx.lineTo(hx1, hy1); ctx.stroke();
+        }
+        ctx.restore();
+
+        // 2. Deforming cyan grid when applying P = qqᵀ (or subtle cyan grid ready to project)
+        if (projAlpha > 0.02) {
           ctx.save();
-          ctx.globalAlpha = 0.88 * projAlpha;
-          ctx.strokeStyle = '#f8fafc';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(cA[0], cA[1]); ctx.lineTo(cB[0], cB[1]); ctx.lineTo(cC[0], cC[1]);
-          ctx.stroke();
+          ctx.globalAlpha = alpha2D * (0.35 + 0.65 * projAlpha);
+          for (let k = -7; k <= 7; k++) {
+            const major = k === 0;
+            ctx.strokeStyle = major ? 'rgba(56, 189, 248, 0.50)' : 'rgba(34, 211, 238, 0.18)';
+            ctx.lineWidth = major ? 1.4 : 0.95;
+            let [u0, v0] = applyM(k, -7);
+            let [u1, v1] = applyM(k, 7);
+            let [sx0, sy0] = toScreen(u0, v0);
+            let [sx1, sy1] = toScreen(u1, v1);
+            ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(sx1, sy1); ctx.stroke();
+
+            [u0, v0] = applyM(-7, k);
+            [u1, v1] = applyM(7, k);
+            [sx0, sy0] = toScreen(u0, v0);
+            [sx1, sy1] = toScreen(u1, v1);
+            ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(sx1, sy1); ctx.stroke();
+          }
           ctx.restore();
         }
-        drawArrow2D(ctx, psx, psy, asx, asy, '#f87171', 2.2, 8, true, projAlpha * (1 - 0.55 * gridProg));
-        drawArrow2D(ctx, cx, cy, psx, psy, '#34d399', 3.0, 9.5, false, projAlpha);
-        drawPillLabel(ctx, psx + (ry >= 0 ? 8 : -8), psy + (ry >= 0 ? 15 : -15),
-          `p = [${fmt(px)}, ${fmt(py)}]ᵀ`, '#6ee7b7', ry >= 0 ? 'left' : 'right', projAlpha);
+
+        const maxR = Math.hypot(W, H);
+
+        // 3. Orthogonal half-planes & perpendicular dividing line bᵀx = 0
+        if (halfAlpha > 0.01) {
+          const ux = bx / bNorm;
+          const uy = by / bNorm;
+          const nx = -uy;
+          const ny = ux;
+          const big = 18;
+          ctx.save();
+          ctx.globalAlpha = alpha2D * halfAlpha;
+          const q1 = toScreen(nx * big, ny * big);
+          const q2 = toScreen(-nx * big, -ny * big);
+          const q3 = toScreen(-nx * big + ux * big, -ny * big + uy * big);
+          const q4 = toScreen(nx * big + ux * big, ny * big + uy * big);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.075)';
+          ctx.beginPath();
+          ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]);
+          ctx.lineTo(q3[0], q3[1]); ctx.lineTo(q4[0], q4[1]);
+          ctx.closePath(); ctx.fill();
+
+          const r3 = toScreen(-nx * big - ux * big, -ny * big - uy * big);
+          const r4 = toScreen(nx * big - ux * big, ny * big - uy * big);
+          ctx.fillStyle = 'rgba(248, 113, 113, 0.065)';
+          ctx.beginPath();
+          ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]);
+          ctx.lineTo(r3[0], r3[1]); ctx.lineTo(r4[0], r4[1]);
+          ctx.closePath(); ctx.fill();
+          ctx.restore();
+
+          drawSpanLine(ctx, cx, cy, nx, ny, maxR, '#e2e8f0', 0.62 * alpha2D * halfAlpha);
+          const posLbl = toScreen(ux * 3.1 + nx * 2.2, uy * 3.1 + ny * 2.2);
+          const negLbl = toScreen(-ux * 3.1 - nx * 1.8, -uy * 3.1 - ny * 1.8);
+          drawPillLabel(ctx, posLbl[0], posLbl[1], '锐角半平面 aᵀb > 0', '#93c5fd', 'center', alpha2D * halfAlpha * 0.9);
+          drawPillLabel(ctx, negLbl[0], negLbl[1], '钝角半平面 aᵀb < 0', '#fca5a5', 'center', alpha2D * halfAlpha * 0.9);
+        }
+
+        // 4. Constant-norm contours (r = 3: L1 diamond, L2 circle, L∞ square) + unit circle & â
+        if (normAlpha > 0.01) {
+          const r = 3;
+          ctx.save();
+          ctx.globalAlpha = alpha2D * normAlpha;
+          const sqA = toScreen(-r, -r), sqB = toScreen(r, r);
+          ctx.strokeStyle = 'rgba(192, 132, 252, 0.68)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 4]);
+          ctx.strokeRect(sqA[0], sqB[1], sqB[0] - sqA[0], sqA[1] - sqB[1]);
+
+          ctx.setLineDash([]);
+          ctx.strokeStyle = 'rgba(96, 165, 250, 0.78)';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
+          ctx.stroke();
+
+          const dN = toScreen(0, r), dE = toScreen(r, 0), dS = toScreen(0, -r), dW = toScreen(-r, 0);
+          ctx.strokeStyle = 'rgba(52, 211, 153, 0.78)';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([5, 3]);
+          ctx.beginPath();
+          ctx.moveTo(dN[0], dN[1]); ctx.lineTo(dE[0], dE[1]);
+          ctx.lineTo(dS[0], dS[1]); ctx.lineTo(dW[0], dW[1]);
+          ctx.closePath();
+          ctx.stroke();
+
+          ctx.strokeStyle = 'rgba(226, 232, 240, 0.35)';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.arc(cx, cy, scale, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          drawPillLabel(ctx, sqB[0] + 6, sqB[1] + 2, '‖x‖∞ = 3（正方形）', '#e9d5ff', 'left', alpha2D * normAlpha);
+          const cPos = toScreen(-2.12, 2.12);
+          drawPillLabel(ctx, cPos[0] - 6, cPos[1] - 8, '‖x‖₂ = 3（正圆）', '#93c5fd', 'right', alpha2D * normAlpha);
+          drawPillLabel(ctx, dN[0] + 8, dN[1] - 4, '‖x‖₁ = 3（菱形）', '#6ee7b7', 'left', alpha2D * normAlpha);
+
+          if (aNorm > 0.05) {
+            const ux = ax / aNorm, uy = ay / aNorm;
+            const [uhx, uhy] = toScreen(ux, uy);
+            drawArrow2D(ctx, cx, cy, uhx, uhy, '#34d399', 2.6, 8.5, false, alpha2D * normAlpha);
+            drawPillLabel(ctx, uhx + (ux >= 0 ? 8 : -8), uhy + (uy >= 0 ? -12 : 12),
+              `â = [${fmt(ux)}, ${fmt(uy)}]ᵀ`, '#6ee7b7', ux >= 0 ? 'left' : 'right', alpha2D * normAlpha);
+          }
+        }
+
+        // 5. Reference vector b & its span line
+        if (bAlpha > 0.01) {
+          if (projAlpha > 0.01) {
+            drawSpanLine(ctx, cx, cy, bx, by, maxR, '#60a5fa', 0.55 * alpha2D * bAlpha * projAlpha);
+          }
+          const [bsx, bsy] = toScreen(bx, by);
+          drawArrow2D(ctx, cx, cy, bsx, bsy, '#60a5fa', 2.9, 10, false, alpha2D * bAlpha);
+          drawPillLabel(ctx, bsx + (bx >= 0 ? 9 : -9), bsy - (by >= 0 ? 12 : -12),
+            `b = [${fmt(bx)}, ${fmt(by)}]ᵀ`, '#93c5fd', bx >= 0 ? 'left' : 'right', alpha2D * bAlpha);
+        }
+
+        // 6. Angle arc or right-angle marker at origin
+        if (angleAlpha > 0.01 && bAlpha > 0.01 && aNorm > 0.15) {
+          if (Math.abs(cos) < 0.035) {
+            const r = 0.34;
+            const e1x = (bx / bNorm) * r, e1y = (by / bNorm) * r;
+            const e2x = (ax / aNorm) * r, e2y = (ay / aNorm) * r;
+            const pA = toScreen(e1x, e1y);
+            const pB = toScreen(e1x + e2x, e1y + e2y);
+            const pC = toScreen(e2x, e2y);
+            ctx.save();
+            ctx.globalAlpha = 0.9 * alpha2D * angleAlpha * bAlpha;
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(pA[0], pA[1]); ctx.lineTo(pB[0], pB[1]); ctx.lineTo(pC[0], pC[1]);
+            ctx.stroke();
+            ctx.restore();
+          } else {
+            const angB = Math.atan2(by, bx);
+            const angA = Math.atan2(ay, ax);
+            const dAng = Math.atan2(Math.sin(angA - angB), Math.cos(angA - angB));
+            const rad = Math.min(1.05, 0.38 * Math.min(aNorm, bNorm));
+            ctx.save();
+            ctx.globalAlpha = 0.85 * alpha2D * angleAlpha * bAlpha;
+            ctx.strokeStyle = '#fde68a';
+            ctx.lineWidth = 1.7;
+            ctx.beginPath();
+            const stepsArc = 28;
+            for (let i = 0; i <= stepsArc; i++) {
+              const th = angB + (dAng * i) / stepsArc;
+              const [sx, sy] = toScreen(Math.cos(th) * rad, Math.sin(th) * rad);
+              if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+            const mid = angB + dAng * 0.5;
+            const [lx, ly] = toScreen(Math.cos(mid) * (rad + 0.42), Math.sin(mid) * (rad + 0.42));
+            ctx.font = '600 11.5px ui-monospace, SFMono-Regular, Menlo, sans-serif';
+            ctx.fillStyle = '#fde68a';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${fmt(deg)}°`, lx, ly);
+            ctx.restore();
+          }
+        }
+
+        // 7. Orthogonal projection p onto span(b) + perpendicular residual a - p + right-angle square at foot
+        const rNorm = Math.hypot(rx, ry);
+        if (projAlpha > 0.01 && bAlpha > 0.01) {
+          const [psx, psy] = toScreen(px, py);
+          const [asx, asy] = toScreen(ax, ay);
+          if (rNorm > 0.2) {
+            const sz = Math.min(0.32, 0.35 * rNorm);
+            const sgnB = cProj >= 0 ? -1 : 1;
+            const uBx = (sgnB * bx / bNorm) * sz;
+            const uBy = (sgnB * by / bNorm) * sz;
+            const uRx = (rx / rNorm) * sz;
+            const uRy = (ry / rNorm) * sz;
+            const cA = toScreen(px + uBx, py + uBy);
+            const cB = toScreen(px + uBx + uRx, py + uBy + uRy);
+            const cC = toScreen(px + uRx, py + uRy);
+            ctx.save();
+            ctx.globalAlpha = 0.88 * alpha2D * projAlpha;
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cA[0], cA[1]); ctx.lineTo(cB[0], cB[1]); ctx.lineTo(cC[0], cC[1]);
+            ctx.stroke();
+            ctx.restore();
+          }
+          drawArrow2D(ctx, psx, psy, asx, asy, '#f87171', 2.2, 8, true, alpha2D * projAlpha * (1 - 0.55 * gridProg));
+          drawArrow2D(ctx, cx, cy, psx, psy, '#34d399', 3.0, 9.5, false, alpha2D * projAlpha);
+          drawPillLabel(ctx, psx + (ry >= 0 ? 8 : -8), psy + (ry >= 0 ? 15 : -15),
+            `p = [${fmt(px)}, ${fmt(py)}]ᵀ`, '#6ee7b7', ry >= 0 ? 'left' : 'right', alpha2D * projAlpha);
+        }
+
+        // 8. Draggable vector a (and live transformed vector when scrubbing normalization or P = qqᵀ)
+        const normScrub = (normAlpha > 0.5 && bAlpha < 0.5) ? p : 0;
+        const curAx = normScrub > 0.01 && aNorm > 0.05
+          ? lerp(ax, ax / aNorm, normScrub)
+          : (gridProg > 0.01 ? lerp(ax, px, gridProg) : ax);
+        const curAy = normScrub > 0.01 && aNorm > 0.05
+          ? lerp(ay, ay / aNorm, normScrub)
+          : (gridProg > 0.01 ? lerp(ay, py, gridProg) : ay);
+
+        const [iax, iay] = toScreen(ax, ay);
+        const [cax, cay] = toScreen(curAx, curAy);
+        if (normScrub > 0.02 || gridProg > 0.02) {
+          drawArrow2D(ctx, cx, cy, iax, iay, 'rgba(251, 191, 36, 0.48)', 1.8, 7, true, alpha2D);
+        }
+        drawArrow2D(ctx, cx, cy, cax, cay, '#fbbf24', 3.1, 10.5, false, alpha2D);
+
+        ctx.save();
+        ctx.globalAlpha = alpha2D;
+        ctx.beginPath();
+        ctx.arc(iax, iay, 5.8, 0, Math.PI * 2);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#0d1321';
+        ctx.stroke();
+        ctx.restore();
+
+        const aLabel = gridProg > 0.94
+          ? `Pa = [${fmt(curAx)}, ${fmt(curAy)}]ᵀ`
+          : `a = [${fmt(curAx)}, ${fmt(curAy)}]ᵀ`;
+        drawPillLabel(ctx, cax + (curAx >= 0 ? 10 : -10), cay - (curAy >= 0 ? 13 : -13),
+          aLabel, '#fde68a', curAx >= 0 ? 'left' : 'right', alpha2D);
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fill();
+        ctx.restore();
       }
 
-      // 8. Draggable vector a (and live transformed vector when scrubbing normalization or P = qqᵀ)
-      const normScrub = (normAlpha > 0.5 && bAlpha < 0.5) ? p : 0;
-      const curAx = normScrub > 0.01 && aNorm > 0.05
-        ? lerp(ax, ax / aNorm, normScrub)
-        : (gridProg > 0.01 ? lerp(ax, px, gridProg) : ax);
-      const curAy = normScrub > 0.01 && aNorm > 0.05
-        ? lerp(ay, ay / aNorm, normScrub)
-        : (gridProg > 0.01 ? lerp(ay, py, gridProg) : ay);
-
-      const [iax, iay] = toScreen(ax, ay);
-      const [cax, cay] = toScreen(curAx, curAy);
-      if (normScrub > 0.02 || gridProg > 0.02) {
-        drawArrow2D(ctx, cx, cy, iax, iay, 'rgba(251, 191, 36, 0.48)', 1.8, 7, true);
+      if (dim3Alpha > 0.01) {
+        drawProj3D(ctx, W, H, dim3Alpha, p);
       }
-      drawArrow2D(ctx, cx, cy, cax, cay, '#fbbf24', 3.1, 10.5);
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(iax, iay, 5.8, 0, Math.PI * 2);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#0d1321';
-      ctx.stroke();
-      ctx.restore();
-
-      const aLabel = gridProg > 0.94
-        ? `Pa = [${fmt(curAx)}, ${fmt(curAy)}]ᵀ`
-        : `a = [${fmt(curAx)}, ${fmt(curAy)}]ᵀ`;
-      drawPillLabel(ctx, cax + (curAx >= 0 ? 10 : -10), cay - (curAy >= 0 ? 13 : -13),
-        aLabel, '#fde68a', curAx >= 0 ? 'left' : 'right');
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#f8fafc';
-      ctx.fill();
-
-      // 9. HUD badge
-      const l1 = Math.abs(ax) + Math.abs(ay);
-      const linf = Math.max(Math.abs(ax), Math.abs(ay));
-      const isOrtho = bAlpha > 0.5 && projAlpha < 0.5 && aNorm > 0.1 && Math.abs(cos) < 0.025;
-      badge.classList.toggle('m3b-hit', isOrtho || gridProg > 0.94);
-      if (normAlpha > 0.5 && bAlpha < 0.5) {
-        badge.textContent = `a = [${fmt(ax)}, ${fmt(ay)}]ᵀ | ‖a‖₁ = ${fmt(l1)}，‖a‖₂ = ${fmt(aNorm)}，‖a‖∞ = ${fmt(linf)}`;
-      } else if (projAlpha > 0.5) {
-        badge.textContent = `投影 p = [${fmt(px)}, ${fmt(py)}]ᵀ (c = ${fmt(cProj)}) | 误差 r = [${fmt(rx)}, ${fmt(ry)}]ᵀ，bᵀr = 0`;
-      } else if (isOrtho) {
-        badge.textContent = `严格正交（夹角 90°）：aᵀb = 0`;
-      } else {
-        badge.textContent = `点积 aᵀb = ${fmt(dot)} | ‖a‖₂ = ${fmt(aNorm)}，‖b‖₂ = ${fmt(bNorm)} | cos θ = ${fmt(cos)}（${fmt(deg)}°）`;
+      // 9. HUD badge (2D steps)
+      if (dim3Alpha <= 0.5) {
+        const l1 = Math.abs(ax) + Math.abs(ay);
+        const linf = Math.max(Math.abs(ax), Math.abs(ay));
+        const isOrtho = bAlpha > 0.5 && projAlpha < 0.5 && aNorm > 0.1 && Math.abs(cos) < 0.025;
+        badge.classList.toggle('m3b-hit', isOrtho || gridProg > 0.94);
+        if (normAlpha > 0.5 && bAlpha < 0.5) {
+          badge.textContent = `a = [${fmt(ax)}, ${fmt(ay)}]ᵀ | ‖a‖₁ = ${fmt(l1)}，‖a‖₂ = ${fmt(aNorm)}，‖a‖∞ = ${fmt(linf)}`;
+        } else if (projAlpha > 0.5) {
+          badge.textContent = `投影 p = [${fmt(px)}, ${fmt(py)}]ᵀ (c = ${fmt(cProj)}) | 误差 r = [${fmt(rx)}, ${fmt(ry)}]ᵀ，bᵀr = 0`;
+        } else if (isOrtho) {
+          badge.textContent = `严格正交（夹角 90°）：aᵀb = 0`;
+        } else {
+          badge.textContent = `点积 aᵀb = ${fmt(dot)} | ‖a‖₂ = ${fmt(aNorm)}，‖b‖₂ = ${fmt(bNorm)} | cos θ = ${fmt(cos)}（${fmt(deg)}°）`;
+        }
       }
       scrubInput.value = String(Math.round(p * 100));
       scrubVal.textContent = `t = ${p.toFixed(2)}`;
@@ -1564,12 +1821,13 @@
       const sAA = angleAlpha, tAA = targetStep.show_angle ? 1 : 0;
       const sHA = halfAlpha, tHA = targetStep.show_halfplane ? 1 : 0;
       const sPA = projAlpha, tPA = targetStep.show_proj ? 1 : 0;
+      const s3D = dim3Alpha, t3D = targetStep.show_proj3d ? 1 : 0;
       const sP = p, tP = targetStep.t != null ? targetStep.t : 0;
 
       activeStep = targetStep;
       if (reduceMotion) {
         vecA = tA; vecB = tB;
-        bAlpha = tBA; normAlpha = tNA; angleAlpha = tAA; halfAlpha = tHA; projAlpha = tPA;
+        bAlpha = tBA; normAlpha = tNA; angleAlpha = tAA; halfAlpha = tHA; projAlpha = tPA; dim3Alpha = t3D;
         p = tP;
         paint();
         if (onDone) onDone();
@@ -1588,6 +1846,7 @@
         angleAlpha = lerp(sAA, tAA, e);
         halfAlpha = lerp(sHA, tHA, e);
         projAlpha = lerp(sPA, tPA, e);
+        dim3Alpha = lerp(s3D, t3D, e);
         p = lerp(sP, tP, e);
         paint();
         if (u < 1) animId = requestAnimationFrame(frame);
@@ -1597,6 +1856,7 @@
     }
 
     let dragging = false;
+    let lastX = 0, lastY = 0;
     const updateAFromEvent = (e) => {
       const rect = canvas.getBoundingClientRect();
       const scale = Math.min(rect.width || 640, rect.height || 360) / 10.4;
@@ -1621,13 +1881,33 @@
     };
     canvas.addEventListener('pointerdown', (e) => {
       dragging = true;
-      userMovedA = true;
-      if (onUserCustomize) onUserCustomize(true);
+      lastX = e.clientX;
+      lastY = e.clientY;
       canvas.setPointerCapture(e.pointerId);
       onManual();
-      updateAFromEvent(e);
+      if (dim3Alpha > 0.5) {
+        userRotated3D = true;
+        if (onUserCustomize) onUserCustomize(true);
+      } else {
+        userMovedA = true;
+        if (onUserCustomize) onUserCustomize(true);
+        updateAFromEvent(e);
+      }
     });
-    canvas.addEventListener('pointermove', (e) => { if (dragging) updateAFromEvent(e); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      if (dim3Alpha > 0.5) {
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        userYawOffset += dx * 0.008;
+        userPitchOffset = clamp(userPitchOffset + dy * 0.006, -0.30, 0.92);
+        paint();
+      } else {
+        updateAFromEvent(e);
+      }
+    });
     const endDrag = () => { dragging = false; };
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
@@ -1644,6 +1924,9 @@
       animateTo,
       resetCustom: () => {
         userMovedA = false;
+        userRotated3D = false;
+        userYawOffset = 0;
+        userPitchOffset = 0;
         vecA = (activeStep.vec_a || [3, -4]).slice();
         paint();
       },
@@ -1740,6 +2023,7 @@
       counter.textContent = `${cur + 1} / ${steps.length}`;
       prev.disabled = cur === 0;
       next.disabled = cur === steps.length - 1;
+      if (hint) hint.textContent = steps[cur].hint || cfg.hint || '';
     }
 
     const onCustomize = (dirty) => { restoreBtn.hidden = !dirty; };
